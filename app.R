@@ -17,7 +17,7 @@ ui <- fluidPage(
 
   fluidRow(
     column(
-      4,
+      6,  # Adjusted to 6 columns width
       div(
         class = "custom-accordion",
 
@@ -48,15 +48,20 @@ ui <- fluidPage(
             id = "collapseAdresse", class = "collapse",
             div(
               class = "card-body",
-              h3("Adresse auswählen"),
-              selectizeInput("strasse", "Straße:",
-                             choices = c("", strassen),
-                             options = list(
-                               create = TRUE,
-                               highlight = TRUE,
-                               placeholder = "Wählen oder suchen Sie eine Straße"
-                             )),
-              uiOutput("hausnummer_dropdown")
+              fluidRow(
+                column(6,
+                       selectizeInput("strasse", "Straße:",
+                                      choices = c("", strassen),
+                                      options = list(
+                                        create = TRUE,
+                                        highlight = TRUE,
+                                        placeholder = "Wählen oder suchen Sie eine Straße"
+                                      ))
+                ),
+                column(6,
+                       uiOutput("hausnummer_dropdown")
+                )
+              )
             )
           )
         ),
@@ -72,7 +77,6 @@ ui <- fluidPage(
             id = "collapseBaujahr", class = "collapse",
             div(
               class = "card-body",
-              h3("Altersklasse auswählen"),
               selectInput("baujahr", "Altersklasse:", choices = c("", names(year_ranges))),
               textOutput("baujahr_percent")
             )
@@ -90,29 +94,40 @@ ui <- fluidPage(
             id = "collapseSanierung", class = "collapse",
             div(
               class = "card-body",
-              h3("Sanierung auswählen"),
               checkboxGroupInput("sanierung", "Wählen Sie durchgeführte Sanierungen aus:", choices = renovation_items),
               textOutput("sanierung_zuschlag")
             )
           )
         ),
 
-        # Ausstattung accordion
+        # Sanitärausstattung accordion
         div(
           class = "card",
           div(
             class = "card-header",
-            actionButton("tabAusstattung", "Ausstattung, Beschaffenheit", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseAusstattung")
+            actionButton("tabSanitär", "Sanitärausstattung", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseSanitär")
           ),
           div(
-            id = "collapseAusstattung", class = "collapse",
+            id = "collapseSanitär", class = "collapse",
             div(
               class = "card-body",
-              h3("Sanitärausstattung"),
               checkboxGroupInput("sanitär", "Wählen Sie aus:", choices = sanitär_items),
-              textOutput("sanitär_zuschlag"),
-              br(),
-              h3("Weitere Ausstattungsmerkmale"),
+              textOutput("sanitär_zuschlag")
+            )
+          )
+        ),
+
+        # Beschaffenheit accordion
+        div(
+          class = "card",
+          div(
+            class = "card-header",
+            actionButton("tabBeschaffenheit", "Beschaffenheit", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseBeschaffenheit")
+          ),
+          div(
+            id = "collapseBeschaffenheit", class = "collapse",
+            div(
+              class = "card-body",
               checkboxGroupInput("ausstattung", "Wählen Sie aus:", choices = names(ausstattung_items)),
               textOutput("ausstattung_zuschlag")
             )
@@ -122,8 +137,7 @@ ui <- fluidPage(
     ),
 
     column(
-      8,
-      h3("Karte"),
+      6,  # Adjusted to 6 columns width
       leafletOutput("map", height = 400)
     )
   )
@@ -196,7 +210,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$sanitär, {
     if (length(input$sanitär) >= 3) {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAusstattung", colorClass = "btn-light-green"))
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanitär", colorClass = "btn-light-green"))
       output$sanitär_zuschlag <- renderText({
         paste("Sanitärausstattungszuschlag: +6%")
       })
@@ -210,7 +224,7 @@ server <- function(input, output, session) {
   observeEvent(input$ausstattung, {
     total_percentage <- sum(unlist(ausstattung_items[input$ausstattung]))
     if (length(input$ausstattung) > 0) {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAusstattung", colorClass = "btn-light-green"))
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabBeschaffenheit", colorClass = "btn-light-green"))
     }
     output$ausstattung_zuschlag <- renderText({
       paste("Weitere Ausstattungszuschläge: ", sprintf("%.2f%%", total_percentage * 100), sep = "")
