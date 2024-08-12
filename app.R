@@ -33,6 +33,31 @@ if (st_crs(sf_data)$epsg != 4326) {
 # Extract unique street names and sort them alphabetically
 strassen <- sort(unique(sf_data$STRASSE))
 
+# Define year ranges and corresponding percentages
+year_ranges <- c(
+  "bis 1918" = 0.00,
+  "1919 - 1945" = -0.07,
+  "1946 - 1977" = -0.10,
+  "1978 - 1984" = -0.05,
+  "1985 - 1995" = -0.01,
+  "1996 - 2004" = 0.06,
+  "2005 - 2012" = 0.12,
+  "2013 - 2018" = 0.19,
+  "2019 - 2023" = 0.24
+)
+
+display_labels <- c(
+  "bis 1918" = "0%",
+  "1919 - 1945" = "-7%",
+  "1946 - 1977" = "-10%",
+  "1978 - 1984" = "-5%",
+  "1985 - 1995" = "-1%",
+  "1996 - 2004" = "+6%",
+  "2005 - 2012" = "+12%",
+  "2013 - 2018" = "+19%",
+  "2019 - 2023" = "+24%"
+)
+
 # Define UI for the application
 ui <- fluidPage(
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
@@ -43,12 +68,20 @@ ui <- fluidPage(
            selectInput("groesse", "Auswahl der Wohnungsgröße:", choices = dropdown_options),
            textOutput("GROESSE"),
            textOutput("low_value"),
-           uiOutput("med_value"),  # Emphasized Med value
+           uiOutput("med_value"),
            textOutput("hi_value"),
            br(),
            h3("Adresse auswählen"),
-           selectInput("strasse", "Straße:", choices = c("", strassen)),
-           uiOutput("hausnummer_dropdown")  # Dynamically created dropdown for house numbers
+           selectizeInput("strasse", "Straße:", choices = c("", strassen),
+                          options = list(
+                            create = TRUE,
+                            highlight = TRUE,
+                            placeholder = "Wählen oder suchen Sie eine Straße")),
+           uiOutput("hausnummer_dropdown"),
+           br(),
+           h3("Altersklasse auswählen"),
+           selectInput("baujahr", "Altersklasse:", choices = c("", names(year_ranges))),
+           textOutput("baujahr_percent")  # Display percentage based on year range
     ),
     column(9,
            h3("Karte"),
@@ -103,98 +136,79 @@ server <- function(input, output, session) {
   # Dynamically generate the house number dropdown based on the selected street
   output$hausnummer_dropdown <- renderUI({
     req(input$strasse)
-
-    # Filter Shapefile data based on the selected street
     gefilterte_adr <- sf_data %>%
       filter(STRASSE == input$strasse)
-
     hausnummern <- create_hausnummer(gefilterte_adr)
-
     selectInput("hausnummer", "Hausnummer:", choices = c("", unique(hausnummern)))
+  })
+
+  # Update street input when only one option is available
+  observe({
+    req(input$strasse)
+    unique_streets <- strassen[grep(paste0("^", input$strasse), strassen)]
+    if (length(unique_streets) == 1 && input$strasse != unique_streets) {
+      updateSelectizeInput(session, "strasse", selected = unique_streets)
+    }
   })
 
   # Render the Leaflet map based on the selected street and house number
   output$map <- renderLeaflet({
     req(input$strasse)
-
-    # Define the exact color values to be used consistently
-    fill_colors <- c("red" = "#FF0000", "blue" = "#0000FF", "green" = "#00FF00")
-    border_colors <- c("red" = "#CC0000", "blue" = "#0000CC", "green" = "#009900")
-
-    # Define color palettes using the exact color codes
-    color_palette <- colorFactor(palette = fill_colors, domain = c("A", "B", "C"))
-    border_palette <- colorFactor(palette = border_colors, domain = c("A", "B", "C"))
-
-    # Filter Shapefile data based on the selected street
     gefilterte_adr <- sf_data %>%
       filter(STRASSE == input$strasse)
-
-    # Create the base map with all address points colored by WL_2024 without borders
+    color_palette <- colorFactor(c("red", "blue", "green"), domain = c("A", "B", "C"))
+    border_palette <- colorFactor(c("darkred", "darkblue", "darkgreen"), domain = c("A", "B", "C"))
     map <- leaflet() %>%
       addTiles() %>%
       addCircleMarkers(data = gefilterte_adr,
                        lng = ~st_coordinates(geometry)[,1],
                        lat = ~st_coordinates(geometry)[,2],
-                       fillColor = ~color_palette(WL_2024),  # Fill color based on WL_2024
-                       color = NA,  # No border for regular markers
+                       fillColor = ~color_palette(WL_2024),
+                       color = NA,
                        radius = 5,
-                       stroke = FALSE,  # Disable border
+                       stroke = FALSE,
                        fillOpacity = 0.8)
-
-    # If a house number is selected, add a highlighted marker for the specific address
     if (!is.null(input$hausnummer) && input$hausnummer != "") {
-      # Construct FullAddress according to the format "Straße NummerZusatz"
       gefilterte_adr <- gefilterte_adr %>%
         mutate(FullAddress = paste(STRASSE, paste0(HNR, ifelse(is.na(HNRZ), "", HNRZ))))
-
-      # Filter for the selected address
       selected_adr <- gefilterte_adr %>%
         filter(FullAddress == paste(input$strasse, input$hausnummer))
-
-      # Check if selected_adr has valid coordinates
       if (nrow(selected_adr) > 0) {
         map <- map %>%
           addCircleMarkers(data = selected_adr,
                            lng = ~st_coordinates(geometry)[,1],
                            lat = ~st_coordinates(geometry)[,2],
-                           fillColor = ~color_palette(WL_2024),  # Fill color based on WL_2024
-                           color = ~border_palette(WL_2024),  # Border color based on WL_2024
-                           weight = 4,  # Border width for the highlighted marker
-                           radius = 10,  # Double the size of the regular markers
-                           stroke = TRUE,  # Enable border
-                           fillOpacity = 0.8,  # Adjust fill opacity
+                           fillColor = ~color_palette(WL_2024),
+                           color = ~border_palette(WL_2024),
+                           weight = 4,
+                           radius = 10,
+                           stroke = TRUE,
+                           fillOpacity = 0.8,
                            popup = ~paste("Adresse:", FullAddress))
       }
     }
-
-    # Add a legend to the map explaining the color coding
-    map <- map %>%
-      addLegend(position = "bottomright",  # Position the legend below the zoom buttons
+    map %>%
+      addLegend(position = "bottomright",
                 title = "Legende",
-                colors = fill_colors,  # Colors corresponding to WL_2024
-                labels = c("Lage A", "Lage B", "Lage C"),  # Labels for each color
-                opacity = 1)
-
-    # Set the view based on the filtered data
-    if (nrow(gefilterte_adr) > 0) {
-      lat_range <- range(st_coordinates(gefilterte_adr$geometry)[,2], na.rm = TRUE)
-      lng_range <- range(st_coordinates(gefilterte_adr$geometry)[,1], na.rm = TRUE)
-      map %>%
-        fitBounds(lng1 = lng_range[1], lat1 = lat_range[1],
-                  lng2 = lng_range[2], lat2 = lat_range[2])
-    } else {
-      map
-    }
+                colors = c("red", "blue", "green"),
+                labels = c("Lage A", "Lage B", "Lage C"),
+                opacity = 1) %>%
+      fitBounds(lng1 = min(st_coordinates(gefilterte_adr$geometry)[,1]),
+                lat1 = min(st_coordinates(gefilterte_adr$geometry)[,2]),
+                lng2 = max(st_coordinates(gefilterte_adr$geometry)[,1]),
+                lat2 = max(st_coordinates(gefilterte_adr$geometry)[,2]))
   })
 
-
-
-
-
-
-
-
-
+  # Display the percentage based on the selected year range
+  output$baujahr_percent <- renderText({
+    req(input$baujahr)
+    if (input$baujahr == "") {
+      return(NULL)
+    }
+    percent_value <- year_ranges[input$baujahr]
+    display_value <- display_labels[input$baujahr]
+    paste("Prozentwert für das Baujahr ", input$baujahr, " ist ", display_value, " (", sprintf("%.2f", percent_value), ")", sep = "")
+  })
 }
 
 # Run the application
