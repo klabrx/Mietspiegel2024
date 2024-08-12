@@ -71,6 +71,25 @@ display_labels <- c(
   "2019 - 2023" = "+24%"
 )
 
+# Define the renovation items
+renovation_items <- c(
+  "Sanitärbereich (mind. Fliesen, Wanne, WC) erneuert",
+  "Elektroinstallation (zeitgemäß) erneuert",
+  "Heizanlage/Warmwasserversorgung erneuert",
+  "Schallschutz eingebaut",
+  "Fußböden erneuert",
+  "Fenster-/Rahmenerneuerung",
+  "Innen- und Wohnungstüren erneuert",
+  "Treppenhaus, Eingangsbereich erneuert",
+  "barrierearme Ausstattung geschaffen (Mindestvoraussetzung: schwellenfrei (max. 4cm Höhe), stufenloser Zugang, bodengleiche Dusche)",
+  "Grundriss verbessert",
+  "Dachsanierung",
+  "Fassadensanierung"
+)
+
+# Add "Keine Sanierungsmaßnahme bekannt" as the first item
+renovation_items <- c("Keine Sanierungsmaßnahme bekannt", renovation_items)
+
 # Define consistent color codes for map markers and legend
 marker_colors <- c("#FF0000", "#0000FF", "#00FF00")  # Red, Blue, Green
 border_colors <- c("#8B0000", "#00008B", "#006400")  # Darker Red, Darker Blue, Darker Green
@@ -173,6 +192,19 @@ ui <- fluidPage(
                            textOutput("baujahr_percent")
                        )
                    )
+               ),
+               # Sanierung accordion
+               div(class = "card",
+                   div(class = "card-header",
+                       tags$button(id = "tabSanierung", class = "btn btn-light-red", "Sanierung", `data-toggle` = "collapse", `data-target` = "#collapseSanierung")
+                   ),
+                   div(id = "collapseSanierung", class = "collapse",
+                       div(class = "card-body",
+                           h3("Sanierung auswählen"),
+                           checkboxGroupInput("sanierung", "Wählen Sie durchgeführte Sanierungen aus:", choices = renovation_items),
+                           textOutput("sanierung_zuschlag")  # Display surcharge based on selected renovations
+                       )
+                   )
                )
            )
     ),
@@ -230,6 +262,28 @@ server <- function(input, output, session) {
   observeEvent(input$baujahr, {
     if (input$baujahr != "") {
       session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabBaujahr"))
+    }
+  })
+
+  observeEvent(input$sanierung, {
+    if ("Keine Sanierungsmaßnahme bekannt" %in% input$sanierung) {
+      updateCheckboxGroupInput(session, "sanierung", selected = "Keine Sanierungsmaßnahme bekannt", choices = renovation_items)
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanierung"))
+      output$sanierung_zuschlag <- renderText({
+        "Sanierungszuschlag: 0%"
+      })
+    } else {
+      updateCheckboxGroupInput(session, "sanierung", selected = input$sanierung, choices = renovation_items[-1])
+      if (length(input$sanierung) >= 3) {
+        session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanierung"))
+        output$sanierung_zuschlag <- renderText({
+          paste("Sanierungszuschlag: +6%")
+        })
+      } else {
+        output$sanierung_zuschlag <- renderText({
+          "Sanierungszuschlag: 0%"
+        })
+      }
     }
   })
 
