@@ -2,169 +2,20 @@ library(shiny)
 library(leaflet)
 library(sf)
 library(dplyr)
+library(shinyjs)
 
-# Define paths for the RData and shapefile
-rdata_path <- "./data/adr_2024.RData"
-shapefile_path <- "./data/SHP/adr2024.shp"
+# Source external scripts
+source("scripts/Process_Shapefile.R")  # Processes and loads the shapefile
+source("scripts/load_data.R")  # Loads the necessary data
+source("scripts/define_options.R")  # Defines dropdown options and year ranges
+source("modules/wohnungsgroesse_ui.R")  # Module UI for Wohnungsgröße
+source("modules/wohnungsgroesse_server.R")  # Module Server for Wohnungsgröße
 
-# Check if the RData file exists
-if (file.exists(rdata_path)) {
-  # Load the RData file
-  load(rdata_path)
-} else {
-  # Import the shapefile
-  sf_data <- st_read(shapefile_path)
-
-  # Check the CRS (Coordinate Reference System)
-  print(st_crs(sf_data))
-
-  # Convert to WGS84 (EPSG:4326) if not already in that CRS
-  if (st_crs(sf_data)$epsg != 4326) {
-    sf_data <- st_transform(sf_data, crs = 4326)
-  }
-
-  # Save the processed sf_data to an RData file
-  save(sf_data, file = rdata_path)
-}
-
-# Now sf_data is available for use in the Shiny app
-# Extract unique street names and sort them alphabetically
-strassen <- sort(unique(sf_data$STRASSE))
-
-# Load data for dropdown options
-RefTab_Groesse <- read.csv("./data/RefTab_Groesse.csv", sep = ";")
-values_list <- lapply(seq_len(nrow(RefTab_Groesse)), function(i) {
-  list(
-    low = RefTab_Groesse$low[i],
-    med = RefTab_Groesse$med[i],
-    hi = RefTab_Groesse$hi[i]
-  )
-})
-
-dropdown_options <- setNames(
-  seq_len(nrow(RefTab_Groesse)),
-  paste(RefTab_Groesse$von, "bis unter", RefTab_Groesse$bis_unter, "m²")
-)
-
-# Define year ranges and corresponding percentages
-year_ranges <- c(
-  "bis 1918" = 0.00,
-  "1919 - 1945" = -0.07,
-  "1946 - 1977" = -0.10,
-  "1978 - 1984" = -0.05,
-  "1985 - 1995" = -0.01,
-  "1996 - 2004" = 0.06,
-  "2005 - 2012" = 0.12,
-  "2013 - 2018" = 0.19,
-  "2019 - 2023" = 0.24
-)
-
-display_labels <- c(
-  "bis 1918" = "0%",
-  "1919 - 1945" = "-7%",
-  "1946 - 1977" = "-10%",
-  "1978 - 1984" = "-5%",
-  "1985 - 1995" = "-1%",
-  "1996 - 2004" = "+6%",
-  "2005 - 2012" = "+12%",
-  "2013 - 2018" = "+19%",
-  "2019 - 2023" = "+24%"
-)
-
-# Define the renovation items
-renovation_items <- c(
-  "Sanitärbereich (mind. Fliesen, Wanne, WC) erneuert",
-  "Elektroinstallation (zeitgemäß) erneuert",
-  "Heizanlage/Warmwasserversorgung erneuert",
-  "Schallschutz eingebaut",
-  "Fußböden erneuert",
-  "Fenster-/Rahmenerneuerung",
-  "Innen- und Wohnungstüren erneuert",
-  "Treppenhaus, Eingangsbereich erneuert",
-  "barrierearme Ausstattung geschaffen (Mindestvoraussetzung: schwellenfrei (max. 4cm Höhe), stufenloser Zugang, bodengleiche Dusche)",
-  "Grundriss verbessert",
-  "Dachsanierung",
-  "Fassadensanierung"
-)
-
-# Add "Keine Sanierungsmaßnahme bekannt" as the first item
-renovation_items <- c("Keine Sanierungsmaßnahme bekannt", renovation_items)
-
-# Define Sanitärausstattung items
-sanitär_items <- c(
-  "zwei oder mehr abgeschlossene Badezimmer in der Wohnung vorhanden",
-  "zweites WC/Gäste-WC vorhanden",
-  "(separate) Einzeldusche",
-  "Fußbodenheizung",
-  "Belüftung(sanlage)",
-  "separater WC-Raum vorhanden",
-  "Handtuchheizkörper",
-  "zweites Waschbecken im selben Badezimmer"
-)
-
-# Define Ausstattung items with corresponding percentages
-ausstattung_items <- list(
-  "Einbauküche mit mindestens zwei Elektroeinbaugeräten (z. B. Herd/Ofen, Gefrierschrank/-truhe, Kühlschrank, Geschirrspülmaschine) wird vom Vermieter ohne zusätzlichen Mietzuschlag gestellt." = 0.04,
-  "Terrasse oder Dachterrasse" = 0.06,
-  "Aufzug in Gebäuden mit weniger als 5 Stockwerken" = 0.07,
-  "Überwiegend Parkett-, Dielen- oder Steinfußboden im überwiegenden Teil des Wohn-/Schlafbereichs, abgesehen von Flur/Bad verbaut" = 0.03,
-  "Energiebedarfsklasse lt. Energiebedarfsausweis lautet F, G oder H; bzw. der Wert kWh/m2a ist größer oder gleich 200" = -0.09,
-  "Teppichboden, PVC- oder Linoleum-Boden im überwiegenden Teil des Wohn-/Schlafbereichs, abgesehen von Flur/Bad verbaut, welcher seit 2013 nicht modernisiert bzw. saniert wurde" = -0.11
-)
-
-# Define consistent color codes for map markers and legend
-marker_colors <- c("#FF0000", "#0000FF", "#00FF00") # Red, Blue, Green
-border_colors <- c("#8B0000", "#00008B", "#006400") # Darker Red, Darker Blue, Darker Green
-
-# Define UI for the application
 ui <- fluidPage(
+  useShinyjs(),  # Initialize shinyjs
+
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
 
-  # Custom CSS to control the accordion and tab colors
-  tags$head(
-    tags$style(HTML("
-      .custom-accordion .card-header {
-        padding: 0;
-        border: none;
-        background: none;
-      }
-      .custom-accordion .btn {
-        text-align: left;
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        color: #333;
-        font-weight: bold;
-      }
-      .custom-accordion .btn-light-red {
-        background-color: #f8d7da;
-      }
-      .custom-accordion .btn-light-green {
-        background-color: #d4edda;
-      }
-      .custom-accordion .btn:focus {
-        outline: none;
-        box-shadow: none;
-      }
-      .custom-accordion .btn:hover {
-        background-color: #e7e7e7;
-      }
-      .custom-accordion .collapse.show {
-        margin-bottom: 10px;
-      }
-    "))
-  ),
-
-  # JavaScript to close other tabs when one is opened and to handle tab colors
-  tags$script(HTML("
-    $(document).on('click', '.collapse.show', function(e) {
-      $('.collapse').not(this).collapse('hide');
-    });
-
-    Shiny.addCustomMessageHandler('updateTabColor', function(message) {
-      $('#' + message.tabId).removeClass('btn-light-red').addClass('btn-light-green');
-    });
-  ")),
   fluidRow(
     column(
       4,
@@ -181,12 +32,7 @@ ui <- fluidPage(
             id = "collapseWohnungsgröße", class = "collapse",
             div(
               class = "card-body",
-              h3("Wohnungsgröße auswählen"),
-              selectInput("groesse", "Auswahl der Wohnungsgröße:", choices = c("", dropdown_options)), # Set default value to empty
-              textOutput("GROESSE"),
-              textOutput("low_value"),
-              uiOutput("med_value"),
-              textOutput("hi_value")
+              wohnungsGrosseUI("wohnungsGrosse")
             )
           )
         ),
@@ -279,69 +125,39 @@ ui <- fluidPage(
   )
 )
 
-# Define server logic
 server <- function(input, output, session) {
-  # Reactively get the selected size values
-  selected_values <- reactive({
-    values_list[[as.numeric(input$groesse)]]
-  })
+  # Function to update tab color
+  updateTabColor <- function(tab_id, new_class) {
+    runjs(paste0('$("#', tab_id, '").removeClass("btn-light-red").addClass("', new_class, '");'))
+  }
 
-  output$low_value <- renderText({
-    req(input$groesse) # Ensure a selection is made before displaying values
-    paste("Basiswert (min):", selected_values()$low, " EUR/m²")
-  })
-
-  output$med_value <- renderUI({
-    req(input$groesse) # Ensure a selection is made before displaying values
-    strong(paste("Basismittelwert:", selected_values()$med, " EUR/m²"),
-           style = "font-weight: bold; font-size: 20px; color: #FF5733;"
-    )
-  })
-
-  output$hi_value <- renderText({
-    req(input$groesse) # Ensure a selection is made before displaying values
-    paste("Basiswert (max):", selected_values()$hi, " EUR/m²")
-  })
-
-  output$GROESSE <- renderText({
-    req(input$groesse) # Ensure a selection is made before displaying values
-    paste(
-      "Die Wohnungsgröße von ",
-      names(dropdown_options)[as.numeric(input$groesse)],
-      " ergibt folgende Basiswerte:"
-    )
-  })
+  # Call the WohnungsGrosse module
+  wohnungsGrosseServer("wohnungsGrosse", updateTabColor)
 
   # Observe selections and change tab color when a selection is made
-  observeEvent(input$groesse, {
-    if (input$groesse != "") {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabWohnungsgröße"))
-    }
-  })
-
   observeEvent(input$strasse, {
     if (input$strasse != "") {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAdresse"))
+      updateTabColor("tabAdresse", "btn-light-green")
     }
   })
 
   observeEvent(input$baujahr, {
     if (input$baujahr != "") {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabBaujahr"))
+      updateTabColor("tabBaujahr", "btn-light-green")
     }
   })
 
   observeEvent(input$sanierung, {
     if ("Keine Sanierungsmaßnahme bekannt" %in% input$sanierung) {
       updateCheckboxGroupInput(session, "sanierung", selected = "Keine Sanierungsmaßnahme bekannt", choices = renovation_items)
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanierung"))
+      updateTabColor("tabSanierung", "btn-light-green")
       output$sanierung_zuschlag <- renderText({
         "Sanierungszuschlag: 0%"
       })
     } else {
       updateCheckboxGroupInput(session, "sanierung", selected = input$sanierung, choices = renovation_items[-1])
       if (length(input$sanierung) >= 3) {
-        session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanierung"))
+        updateTabColor("tabSanierung", "btn-light-green")
         output$sanierung_zuschlag <- renderText({
           paste("Sanierungszuschlag: +6%")
         })
@@ -355,7 +171,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$sanitär, {
     if (length(input$sanitär) >= 3) {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAusstattung"))
+      updateTabColor("tabAusstattung", "btn-light-green")
       output$sanitär_zuschlag <- renderText({
         paste("Sanitärausstattungszuschlag: +6%")
       })
@@ -369,7 +185,7 @@ server <- function(input, output, session) {
   observeEvent(input$ausstattung, {
     total_percentage <- sum(unlist(ausstattung_items[input$ausstattung]))
     if (length(input$ausstattung) > 0) {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAusstattung"))
+      updateTabColor("tabAusstattung", "btn-light-green")
     }
     output$ausstattung_zuschlag <- renderText({
       paste("Weitere Ausstattungszuschläge: ", sprintf("%.2f%%", total_percentage * 100), sep = "")
@@ -478,5 +294,4 @@ server <- function(input, output, session) {
   })
 }
 
-# Run the application
 shinyApp(ui = ui, server = server)
