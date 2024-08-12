@@ -2,46 +2,47 @@ library(shiny)
 library(leaflet)
 library(sf)
 library(dplyr)
-library(shinyjs)
 
 # Source external scripts
-source("scripts/Process_Shapefile.R")  # Processes and loads the shapefile
-source("scripts/load_data.R")  # Loads the necessary data
-source("scripts/define_options.R")  # Defines dropdown options and year ranges
-source("modules/wohnungsgroesse_ui.R")  # Module UI for Wohnungsgröße
-source("modules/wohnungsgroesse_server.R")  # Module Server for Wohnungsgröße
+source("./scripts/load_data.R")
+source("./scripts/define_options.R")
+source("./modules/wohnungsgroesse_module.R")  # Load the Wohnungsgröße module
 
+# Define UI
 ui <- fluidPage(
-  useShinyjs(),  # Initialize shinyjs
-
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
+
+  # Include custom styles
+  tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "styles/custom_styles.css")),
 
   fluidRow(
     column(
       4,
       div(
         class = "custom-accordion",
+
         # Wohnungsgröße accordion
         div(
           class = "card",
           div(
             class = "card-header",
-            tags$button(id = "tabWohnungsgröße", class = "btn btn-light-red", "Wohnungsgröße", `data-toggle` = "collapse", `data-target` = "#collapseWohnungsgröße")
+            actionButton("tabWohnungsgröße", "Wohnungsgröße", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseWohnungsgröße")
           ),
           div(
             id = "collapseWohnungsgröße", class = "collapse",
             div(
               class = "card-body",
-              wohnungsGrosseUI("wohnungsGrosse")
+              wohnungsgroesseUI("wohnungsGrosse") # Call the UI part of the module
             )
           )
         ),
+
         # Adresse accordion
         div(
           class = "card",
           div(
             class = "card-header",
-            tags$button(id = "tabAdresse", class = "btn btn-light-red", "Adresse", `data-toggle` = "collapse", `data-target` = "#collapseAdresse")
+            actionButton("tabAdresse", "Adresse", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseAdresse")
           ),
           div(
             id = "collapseAdresse", class = "collapse",
@@ -54,18 +55,18 @@ ui <- fluidPage(
                                create = TRUE,
                                highlight = TRUE,
                                placeholder = "Wählen oder suchen Sie eine Straße"
-                             )
-              ),
+                             )),
               uiOutput("hausnummer_dropdown")
             )
           )
         ),
+
         # Baujahr accordion
         div(
           class = "card",
           div(
             class = "card-header",
-            tags$button(id = "tabBaujahr", class = "btn btn-light-red", "Baujahr", `data-toggle` = "collapse", `data-target` = "#collapseBaujahr")
+            actionButton("tabBaujahr", "Baujahr", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseBaujahr")
           ),
           div(
             id = "collapseBaujahr", class = "collapse",
@@ -77,12 +78,13 @@ ui <- fluidPage(
             )
           )
         ),
+
         # Sanierung accordion
         div(
           class = "card",
           div(
             class = "card-header",
-            tags$button(id = "tabSanierung", class = "btn btn-light-red", "Sanierung", `data-toggle` = "collapse", `data-target` = "#collapseSanierung")
+            actionButton("tabSanierung", "Sanierung", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseSanierung")
           ),
           div(
             id = "collapseSanierung", class = "collapse",
@@ -90,16 +92,17 @@ ui <- fluidPage(
               class = "card-body",
               h3("Sanierung auswählen"),
               checkboxGroupInput("sanierung", "Wählen Sie durchgeführte Sanierungen aus:", choices = renovation_items),
-              textOutput("sanierung_zuschlag") # Display surcharge based on selected renovations
+              textOutput("sanierung_zuschlag")
             )
           )
         ),
-        # Ausstattung, Beschaffenheit accordion
+
+        # Ausstattung accordion
         div(
           class = "card",
           div(
             class = "card-header",
-            tags$button(id = "tabAusstattung", class = "btn btn-light-red", "Ausstattung, Beschaffenheit", `data-toggle` = "collapse", `data-target` = "#collapseAusstattung")
+            actionButton("tabAusstattung", "Ausstattung, Beschaffenheit", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseAusstattung")
           ),
           div(
             id = "collapseAusstattung", class = "collapse",
@@ -107,16 +110,17 @@ ui <- fluidPage(
               class = "card-body",
               h3("Sanitärausstattung"),
               checkboxGroupInput("sanitär", "Wählen Sie aus:", choices = sanitär_items),
-              textOutput("sanitär_zuschlag"), # Display surcharge based on selected sanitär options
+              textOutput("sanitär_zuschlag"),
               br(),
               h3("Weitere Ausstattungsmerkmale"),
               checkboxGroupInput("ausstattung", "Wählen Sie aus:", choices = names(ausstattung_items)),
-              textOutput("ausstattung_zuschlag") # Display surcharge based on selected ausstattung options
+              textOutput("ausstattung_zuschlag")
             )
           )
         )
       )
     ),
+
     column(
       8,
       h3("Karte"),
@@ -125,39 +129,60 @@ ui <- fluidPage(
   )
 )
 
+# Define Server
 server <- function(input, output, session) {
-  # Function to update tab color
-  updateTabColor <- function(tab_id, new_class) {
-    runjs(paste0('$("#', tab_id, '").removeClass("btn-light-red").addClass("', new_class, '");'))
+
+  # Call the Wohnungsgröße module server part
+  wohnungsgroesseServer("wohnungsGrosse")
+
+  # Custom message handler for tab color updates
+  observe({
+    session$onFlushed(function() {
+      session$sendCustomMessage(type = "updateTabColor", list(tabId = "tabWohnungsgröße", colorClass = "btn-light-green"))
+    }, once = TRUE)
+  })
+
+  # Define the create_hausnummer function
+  create_hausnummer <- function(data) {
+    data %>%
+      mutate(Hausnummer = paste0(as.character(HNR), ifelse(is.na(HNRZ), "", HNRZ))) %>%
+      arrange(as.numeric(HNR), HNRZ) %>%
+      pull(Hausnummer)
   }
 
-  # Call the WohnungsGrosse module
-  wohnungsGrosseServer("wohnungsGrosse", updateTabColor)
+  # Address dropdown dynamic generation
+  output$hausnummer_dropdown <- renderUI({
+    req(input$strasse)
+    gefilterte_adr <- sf_data %>%
+      filter(STRASSE == input$strasse)
+    hausnummern <- create_hausnummer(gefilterte_adr)
+    selectInput("hausnummer", "Hausnummer:", choices = c("", unique(hausnummern)))
+  })
 
-  # Observe selections and change tab color when a selection is made
+  # Observe other tab actions and update colors accordingly
   observeEvent(input$strasse, {
     if (input$strasse != "") {
-      updateTabColor("tabAdresse", "btn-light-green")
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAdresse", colorClass = "btn-light-green"))
     }
   })
 
   observeEvent(input$baujahr, {
     if (input$baujahr != "") {
-      updateTabColor("tabBaujahr", "btn-light-green")
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabBaujahr", colorClass = "btn-light-green"))
     }
   })
 
   observeEvent(input$sanierung, {
     if ("Keine Sanierungsmaßnahme bekannt" %in% input$sanierung) {
       updateCheckboxGroupInput(session, "sanierung", selected = "Keine Sanierungsmaßnahme bekannt", choices = renovation_items)
-      updateTabColor("tabSanierung", "btn-light-green")
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanierung", colorClass = "btn-light-green"))
       output$sanierung_zuschlag <- renderText({
         "Sanierungszuschlag: 0%"
       })
     } else {
       updateCheckboxGroupInput(session, "sanierung", selected = input$sanierung, choices = renovation_items[-1])
       if (length(input$sanierung) >= 3) {
-        updateTabColor("tabSanierung", "btn-light-green")
+        session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanierung", colorClass = "btn-light-green"))
         output$sanierung_zuschlag <- renderText({
           paste("Sanierungszuschlag: +6%")
         })
@@ -171,7 +196,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$sanitär, {
     if (length(input$sanitär) >= 3) {
-      updateTabColor("tabAusstattung", "btn-light-green")
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAusstattung", colorClass = "btn-light-green"))
       output$sanitär_zuschlag <- renderText({
         paste("Sanitärausstattungszuschlag: +6%")
       })
@@ -185,45 +210,11 @@ server <- function(input, output, session) {
   observeEvent(input$ausstattung, {
     total_percentage <- sum(unlist(ausstattung_items[input$ausstattung]))
     if (length(input$ausstattung) > 0) {
-      updateTabColor("tabAusstattung", "btn-light-green")
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAusstattung", colorClass = "btn-light-green"))
     }
     output$ausstattung_zuschlag <- renderText({
       paste("Weitere Ausstattungszuschläge: ", sprintf("%.2f%%", total_percentage * 100), sep = "")
     })
-  })
-
-  # Function to create a sortable Hausnummer field
-  create_hausnummer <- function(data) {
-    data %>%
-      mutate(Hausnummer = paste0(as.character(HNR), ifelse(is.na(HNRZ), "", HNRZ))) %>%
-      arrange(as.numeric(HNR), HNRZ) %>%
-      pull(Hausnummer)
-  }
-
-  # Function to create the full address
-  create_full_address <- function(data) {
-    data %>%
-      mutate(FullAddress = paste(STRASSE, as.character(HNR), ifelse(is.na(HNRZ), "", HNRZ))) %>%
-      arrange(FullAddress) %>%
-      pull(FullAddress)
-  }
-
-  # Dynamically generate the house number dropdown based on the selected street
-  output$hausnummer_dropdown <- renderUI({
-    req(input$strasse)
-    gefilterte_adr <- sf_data %>%
-      filter(STRASSE == input$strasse)
-    hausnummern <- create_hausnummer(gefilterte_adr)
-    selectInput("hausnummer", "Hausnummer:", choices = c("", unique(hausnummern)))
-  })
-
-  # Update street input when only one option is available
-  observe({
-    req(input$strasse)
-    unique_streets <- strassen[grep(paste0("^", input$strasse), strassen)]
-    if (length(unique_streets) == 1 && input$strasse != unique_streets) {
-      updateSelectizeInput(session, "strasse", selected = unique_streets)
-    }
   })
 
   # Render the Leaflet map based on the selected street and house number
@@ -294,4 +285,5 @@ server <- function(input, output, session) {
   })
 }
 
+# Run the application
 shinyApp(ui = ui, server = server)

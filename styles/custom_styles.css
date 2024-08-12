@@ -1,0 +1,31 @@
+/* custom_styles.css */
+.custom-accordion .card-header {
+  padding: 0;
+  border: none;
+  background: none;
+}
+.custom-accordion .btn {
+  text-align: left;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  color: #333;
+  font-weight: bold;
+}
+.custom-accordion .btn-light-red {
+  background-color: #f8d7da;
+}
+.custom-accordion .btn-light-green {
+  background-color: #d4edda;
+}
+.custom-accordion .btn:focus {
+  outline: none;
+  box-shadow: none;
+}
+.custom-accordion .btn:hover {
+  background-color: #e7e7e7;
+}
+.custom-accordion .collapse.show {
+  margin-bottom: 10px;
+}
+
