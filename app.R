@@ -90,9 +90,31 @@ renovation_items <- c(
 # Add "Keine Sanierungsmaßnahme bekannt" as the first item
 renovation_items <- c("Keine Sanierungsmaßnahme bekannt", renovation_items)
 
+# Define Sanitärausstattung items
+sanitär_items <- c(
+  "zwei oder mehr abgeschlossene Badezimmer in der Wohnung vorhanden",
+  "zweites WC/Gäste-WC vorhanden",
+  "(separate) Einzeldusche",
+  "Fußbodenheizung",
+  "Belüftung(sanlage)",
+  "separater WC-Raum vorhanden",
+  "Handtuchheizkörper",
+  "zweites Waschbecken im selben Badezimmer"
+)
+
+# Define Ausstattung items with corresponding percentages
+ausstattung_items <- list(
+  "Einbauküche mit mindestens zwei Elektroeinbaugeräten (z. B. Herd/Ofen, Gefrierschrank/-truhe, Kühlschrank, Geschirrspülmaschine) wird vom Vermieter ohne zusätzlichen Mietzuschlag gestellt." = 0.04,
+  "Terrasse oder Dachterrasse" = 0.06,
+  "Aufzug in Gebäuden mit weniger als 5 Stockwerken" = 0.07,
+  "Überwiegend Parkett-, Dielen- oder Steinfußboden im überwiegenden Teil des Wohn-/Schlafbereichs, abgesehen von Flur/Bad verbaut" = 0.03,
+  "Energiebedarfsklasse lt. Energiebedarfsausweis lautet F, G oder H; bzw. der Wert kWh/m2a ist größer oder gleich 200" = -0.09,
+  "Teppichboden, PVC- oder Linoleum-Boden im überwiegenden Teil des Wohn-/Schlafbereichs, abgesehen von Flur/Bad verbaut, welcher seit 2013 nicht modernisiert bzw. saniert wurde" = -0.11
+)
+
 # Define consistent color codes for map markers and legend
-marker_colors <- c("#FF0000", "#0000FF", "#00FF00")  # Red, Blue, Green
-border_colors <- c("#8B0000", "#00008B", "#006400")  # Darker Red, Darker Blue, Darker Green
+marker_colors <- c("#FF0000", "#0000FF", "#00FF00") # Red, Blue, Green
+border_colors <- c("#8B0000", "#00008B", "#006400") # Darker Red, Darker Blue, Darker Green
 
 # Define UI for the application
 ui <- fluidPage(
@@ -143,107 +165,151 @@ ui <- fluidPage(
       $('#' + message.tabId).removeClass('btn-light-red').addClass('btn-light-green');
     });
   ")),
-
   fluidRow(
-    column(4,
-           div(class = "custom-accordion",
-               # Wohnungsgröße accordion
-               div(class = "card",
-                   div(class = "card-header",
-                       tags$button(id = "tabWohnungsgröße", class = "btn btn-light-red", "Wohnungsgröße", `data-toggle` = "collapse", `data-target` = "#collapseWohnungsgröße")
-                   ),
-                   div(id = "collapseWohnungsgröße", class = "collapse",
-                       div(class = "card-body",
-                           h3("Wohnungsgröße auswählen"),
-                           selectInput("groesse", "Auswahl der Wohnungsgröße:", choices = c("", dropdown_options)),  # Set default value to empty
-                           textOutput("GROESSE"),
-                           textOutput("low_value"),
-                           uiOutput("med_value"),
-                           textOutput("hi_value")
-                       )
-                   )
-               ),
-               # Adresse accordion
-               div(class = "card",
-                   div(class = "card-header",
-                       tags$button(id = "tabAdresse", class = "btn btn-light-red", "Adresse", `data-toggle` = "collapse", `data-target` = "#collapseAdresse")
-                   ),
-                   div(id = "collapseAdresse", class = "collapse",
-                       div(class = "card-body",
-                           h3("Adresse auswählen"),
-                           selectizeInput("strasse", "Straße:", choices = c("", strassen),
-                                          options = list(
-                                            create = TRUE,
-                                            highlight = TRUE,
-                                            placeholder = "Wählen oder suchen Sie eine Straße")),
-                           uiOutput("hausnummer_dropdown")
-                       )
-                   )
-               ),
-               # Baujahr accordion
-               div(class = "card",
-                   div(class = "card-header",
-                       tags$button(id = "tabBaujahr", class = "btn btn-light-red", "Baujahr", `data-toggle` = "collapse", `data-target` = "#collapseBaujahr")
-                   ),
-                   div(id = "collapseBaujahr", class = "collapse",
-                       div(class = "card-body",
-                           h3("Altersklasse auswählen"),
-                           selectInput("baujahr", "Altersklasse:", choices = c("", names(year_ranges))),
-                           textOutput("baujahr_percent")
-                       )
-                   )
-               ),
-               # Sanierung accordion
-               div(class = "card",
-                   div(class = "card-header",
-                       tags$button(id = "tabSanierung", class = "btn btn-light-red", "Sanierung", `data-toggle` = "collapse", `data-target` = "#collapseSanierung")
-                   ),
-                   div(id = "collapseSanierung", class = "collapse",
-                       div(class = "card-body",
-                           h3("Sanierung auswählen"),
-                           checkboxGroupInput("sanierung", "Wählen Sie durchgeführte Sanierungen aus:", choices = renovation_items),
-                           textOutput("sanierung_zuschlag")  # Display surcharge based on selected renovations
-                       )
-                   )
-               )
-           )
+    column(
+      4,
+      div(
+        class = "custom-accordion",
+        # Wohnungsgröße accordion
+        div(
+          class = "card",
+          div(
+            class = "card-header",
+            tags$button(id = "tabWohnungsgröße", class = "btn btn-light-red", "Wohnungsgröße", `data-toggle` = "collapse", `data-target` = "#collapseWohnungsgröße")
+          ),
+          div(
+            id = "collapseWohnungsgröße", class = "collapse",
+            div(
+              class = "card-body",
+              h3("Wohnungsgröße auswählen"),
+              selectInput("groesse", "Auswahl der Wohnungsgröße:", choices = c("", dropdown_options)), # Set default value to empty
+              textOutput("GROESSE"),
+              textOutput("low_value"),
+              uiOutput("med_value"),
+              textOutput("hi_value")
+            )
+          )
+        ),
+        # Adresse accordion
+        div(
+          class = "card",
+          div(
+            class = "card-header",
+            tags$button(id = "tabAdresse", class = "btn btn-light-red", "Adresse", `data-toggle` = "collapse", `data-target` = "#collapseAdresse")
+          ),
+          div(
+            id = "collapseAdresse", class = "collapse",
+            div(
+              class = "card-body",
+              h3("Adresse auswählen"),
+              selectizeInput("strasse", "Straße:",
+                             choices = c("", strassen),
+                             options = list(
+                               create = TRUE,
+                               highlight = TRUE,
+                               placeholder = "Wählen oder suchen Sie eine Straße"
+                             )
+              ),
+              uiOutput("hausnummer_dropdown")
+            )
+          )
+        ),
+        # Baujahr accordion
+        div(
+          class = "card",
+          div(
+            class = "card-header",
+            tags$button(id = "tabBaujahr", class = "btn btn-light-red", "Baujahr", `data-toggle` = "collapse", `data-target` = "#collapseBaujahr")
+          ),
+          div(
+            id = "collapseBaujahr", class = "collapse",
+            div(
+              class = "card-body",
+              h3("Altersklasse auswählen"),
+              selectInput("baujahr", "Altersklasse:", choices = c("", names(year_ranges))),
+              textOutput("baujahr_percent")
+            )
+          )
+        ),
+        # Sanierung accordion
+        div(
+          class = "card",
+          div(
+            class = "card-header",
+            tags$button(id = "tabSanierung", class = "btn btn-light-red", "Sanierung", `data-toggle` = "collapse", `data-target` = "#collapseSanierung")
+          ),
+          div(
+            id = "collapseSanierung", class = "collapse",
+            div(
+              class = "card-body",
+              h3("Sanierung auswählen"),
+              checkboxGroupInput("sanierung", "Wählen Sie durchgeführte Sanierungen aus:", choices = renovation_items),
+              textOutput("sanierung_zuschlag") # Display surcharge based on selected renovations
+            )
+          )
+        ),
+        # Ausstattung, Beschaffenheit accordion
+        div(
+          class = "card",
+          div(
+            class = "card-header",
+            tags$button(id = "tabAusstattung", class = "btn btn-light-red", "Ausstattung, Beschaffenheit", `data-toggle` = "collapse", `data-target` = "#collapseAusstattung")
+          ),
+          div(
+            id = "collapseAusstattung", class = "collapse",
+            div(
+              class = "card-body",
+              h3("Sanitärausstattung"),
+              checkboxGroupInput("sanitär", "Wählen Sie aus:", choices = sanitär_items),
+              textOutput("sanitär_zuschlag"), # Display surcharge based on selected sanitär options
+              br(),
+              h3("Weitere Ausstattungsmerkmale"),
+              checkboxGroupInput("ausstattung", "Wählen Sie aus:", choices = names(ausstattung_items)),
+              textOutput("ausstattung_zuschlag") # Display surcharge based on selected ausstattung options
+            )
+          )
+        )
+      )
     ),
-    column(8,
-           h3("Karte"),
-           leafletOutput("map", height = 400)
+    column(
+      8,
+      h3("Karte"),
+      leafletOutput("map", height = 400)
     )
   )
 )
 
 # Define server logic
 server <- function(input, output, session) {
-
   # Reactively get the selected size values
   selected_values <- reactive({
     values_list[[as.numeric(input$groesse)]]
   })
 
   output$low_value <- renderText({
-    req(input$groesse)  # Ensure a selection is made before displaying values
+    req(input$groesse) # Ensure a selection is made before displaying values
     paste("Basiswert (min):", selected_values()$low, " EUR/m²")
   })
 
   output$med_value <- renderUI({
-    req(input$groesse)  # Ensure a selection is made before displaying values
+    req(input$groesse) # Ensure a selection is made before displaying values
     strong(paste("Basismittelwert:", selected_values()$med, " EUR/m²"),
-           style = "font-weight: bold; font-size: 20px; color: #FF5733;")
+           style = "font-weight: bold; font-size: 20px; color: #FF5733;"
+    )
   })
 
   output$hi_value <- renderText({
-    req(input$groesse)  # Ensure a selection is made before displaying values
+    req(input$groesse) # Ensure a selection is made before displaying values
     paste("Basiswert (max):", selected_values()$hi, " EUR/m²")
   })
 
   output$GROESSE <- renderText({
-    req(input$groesse)  # Ensure a selection is made before displaying values
-    paste("Die Wohnungsgröße von ",
-          names(dropdown_options)[as.numeric(input$groesse)],
-          " ergibt folgende Basiswerte:")
+    req(input$groesse) # Ensure a selection is made before displaying values
+    paste(
+      "Die Wohnungsgröße von ",
+      names(dropdown_options)[as.numeric(input$groesse)],
+      " ergibt folgende Basiswerte:"
+    )
   })
 
   # Observe selections and change tab color when a selection is made
@@ -285,6 +351,29 @@ server <- function(input, output, session) {
         })
       }
     }
+  })
+
+  observeEvent(input$sanitär, {
+    if (length(input$sanitär) >= 3) {
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAusstattung"))
+      output$sanitär_zuschlag <- renderText({
+        paste("Sanitärausstattungszuschlag: +6%")
+      })
+    } else {
+      output$sanitär_zuschlag <- renderText({
+        "Sanitärausstattungszuschlag: 0%"
+      })
+    }
+  })
+
+  observeEvent(input$ausstattung, {
+    total_percentage <- sum(unlist(ausstattung_items[input$ausstattung]))
+    if (length(input$ausstattung) > 0) {
+      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAusstattung"))
+    }
+    output$ausstattung_zuschlag <- renderText({
+      paste("Weitere Ausstattungszuschläge: ", sprintf("%.2f%%", total_percentage * 100), sep = "")
+    })
   })
 
   # Function to create a sortable Hausnummer field
@@ -330,14 +419,16 @@ server <- function(input, output, session) {
     border_palette <- colorFactor(border_colors, domain = c("A", "B", "C"))
     map <- leaflet() %>%
       addTiles() %>%
-      addCircleMarkers(data = gefilterte_adr,
-                       lng = ~st_coordinates(geometry)[,1],
-                       lat = ~st_coordinates(geometry)[,2],
-                       fillColor = ~color_palette(WL_2024),
-                       color = NA,
-                       radius = 5,
-                       stroke = FALSE,
-                       fillOpacity = 0.8)
+      addCircleMarkers(
+        data = gefilterte_adr,
+        lng = ~ st_coordinates(geometry)[, 1],
+        lat = ~ st_coordinates(geometry)[, 2],
+        fillColor = ~ color_palette(WL_2024),
+        color = NA,
+        radius = 5,
+        stroke = FALSE,
+        fillOpacity = 0.8
+      )
     if (!is.null(input$hausnummer) && input$hausnummer != "") {
       gefilterte_adr <- gefilterte_adr %>%
         mutate(FullAddress = paste(STRASSE, paste0(HNR, ifelse(is.na(HNRZ), "", HNRZ))))
@@ -345,28 +436,34 @@ server <- function(input, output, session) {
         filter(FullAddress == paste(input$strasse, input$hausnummer))
       if (nrow(selected_adr) > 0) {
         map <- map %>%
-          addCircleMarkers(data = selected_adr,
-                           lng = ~st_coordinates(geometry)[,1],
-                           lat = ~st_coordinates(geometry)[,2],
-                           fillColor = ~color_palette(WL_2024),
-                           color = ~border_palette(WL_2024),
-                           weight = 4,
-                           radius = 10,
-                           stroke = TRUE,
-                           fillOpacity = 0.8,
-                           popup = ~paste("Adresse:", FullAddress))
+          addCircleMarkers(
+            data = selected_adr,
+            lng = ~ st_coordinates(geometry)[, 1],
+            lat = ~ st_coordinates(geometry)[, 2],
+            fillColor = ~ color_palette(WL_2024),
+            color = ~ border_palette(WL_2024),
+            weight = 4,
+            radius = 10,
+            stroke = TRUE,
+            fillOpacity = 0.8,
+            popup = ~ paste("Adresse:", FullAddress)
+          )
       }
     }
     map %>%
-      addLegend(position = "bottomright",
-                title = "Legende",
-                colors = marker_colors,
-                labels = c("Lage A", "Lage B", "Lage C"),
-                opacity = 1) %>%
-      fitBounds(lng1 = min(st_coordinates(gefilterte_adr$geometry)[,1]),
-                lat1 = min(st_coordinates(gefilterte_adr$geometry)[,2]),
-                lng2 = max(st_coordinates(gefilterte_adr$geometry)[,1]),
-                lat2 = max(st_coordinates(gefilterte_adr$geometry)[,2]))
+      addLegend(
+        position = "bottomright",
+        title = "Legende",
+        colors = marker_colors,
+        labels = c("Lage A", "Lage B", "Lage C"),
+        opacity = 1
+      ) %>%
+      fitBounds(
+        lng1 = min(st_coordinates(gefilterte_adr$geometry)[, 1]),
+        lat1 = min(st_coordinates(gefilterte_adr$geometry)[, 2]),
+        lng2 = max(st_coordinates(gefilterte_adr$geometry)[, 1]),
+        lat2 = max(st_coordinates(gefilterte_adr$geometry)[, 2])
+      )
   })
 
   # Display the percentage based on the selected year range
