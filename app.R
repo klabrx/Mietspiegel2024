@@ -2,53 +2,30 @@ library(shiny)
 library(leaflet)
 library(sf)
 library(dplyr)
-library(shinyjs)
 
-# Source external scripts
-source("./scripts/load_data.R")
-source("./scripts/define_options.R")
+# Load Data
+load("./data/adr_2024.RData")
 
-# Define the create_hausnummer function
-create_hausnummer <- function(data) {
-  data %>%
-    mutate(Hausnummer = paste0(as.character(HNR), ifelse(is.na(HNRZ), "", HNRZ))) %>%
-    arrange(as.numeric(HNR), HNRZ) %>%
-    pull(Hausnummer)
-}
+# Extract unique street names and sort them alphabetically
+strassen <- sort(unique(sf_data$STRASSE))
+
+# Define Wohnlage Adjustments
+wohnlage_adjustments <- list(
+  "A" = 0.00,
+  "B" = -0.07,
+  "C" = -0.10
+)
 
 # Define UI
 ui <- fluidPage(
-  useShinyjs(),  # Include shinyjs
-
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
-
-  # Custom CSS for tab colors
-  tags$head(
-    tags$style(HTML("
-      .nav-pills .nav-link.red-tab {
-        background-color: #f8d7da;
-        color: #721c24;
-      }
-      .nav-pills .nav-link.green-tab {
-        background-color: #d4edda;
-        color: #155724;
-      }
-      .nav-pills .nav-link {
-        margin-right: 5px;
-        border-radius: 5px;
-      }
-    "))
-  ),
-
   tabsetPanel(
-    id = "mainTabs",
+    id = "main_tabs",
     tabPanel(
-      "Wohnungsgröße",
-      value = "Wohnungsgröße",
+      title = "Wohnungsgröße",
       fluidRow(
         column(
-          4,  # Left column for inputs
-          h3("Wohnungsgröße auswählen"),
+          width = 4,
           selectInput("groesse", "Auswahl der Wohnungsgröße:", choices = c("", dropdown_options)),
           textOutput("GROESSE"),
           textOutput("low_value"),
@@ -56,110 +33,112 @@ ui <- fluidPage(
           textOutput("hi_value")
         ),
         column(
-          8,  # Right column for explanations
-          h3("Erläuterungen"),
-          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+          width = 8,
+          p("Beschreibung der Wohnungsgröße.")
         )
       )
     ),
-
     tabPanel(
-      "Adresse",
-      value = "Adresse",
+      title = "Adresse",
       fluidRow(
         column(
-          4,  # Left column for inputs
-          h3("Adresse auswählen"),
-          fluidRow(
-            column(
-              8,  # Street selection
-              selectizeInput("strasse", "Straße:", choices = c("", strassen),
-                             options = list(create = TRUE, highlight = TRUE, placeholder = "Wählen oder suchen Sie eine Straße"))
-            ),
-            column(
-              4,  # House number selection
-              uiOutput("hausnummer_dropdown")
-            )
-          ),
+          width = 4,
+          selectizeInput("strasse", "Straße:", choices = c("", strassen)),
+          uiOutput("hausnummer_dropdown"),
           leafletOutput("map", height = 300),
-          textOutput("wohnlage")  # New output for Wohnlage
+          textOutput("wohnlage")  # Display the Wohnlage output below the map
         ),
         column(
-          8,  # Right column for explanations
-          h3("Erläuterungen"),
-          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+          width = 8,
+          p("Beschreibung der Adresse.")
         )
       )
     ),
-
     tabPanel(
-      "Baujahr",
-      value = "Baujahr",
+      title = "Baujahr",
       fluidRow(
         column(
-          4,  # Left column for inputs
-          h3("Altersklasse auswählen"),
+          width = 4,
           selectInput("baujahr", "Altersklasse:", choices = c("", names(year_ranges))),
           textOutput("baujahr_percent")
         ),
         column(
-          8,  # Right column for explanations
-          h3("Erläuterungen"),
-          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+          width = 8,
+          p("Beschreibung des Baujahrs.")
         )
       )
     ),
-
     tabPanel(
-      "Sanierung",
-      value = "Sanierung",
+      title = "Sanierung",
       fluidRow(
         column(
-          4,  # Left column for inputs
-          h3("Sanierung auswählen"),
+          width = 4,
           checkboxGroupInput("sanierung", "Wählen Sie durchgeführte Sanierungen aus:", choices = renovation_items),
           textOutput("sanierung_zuschlag")
         ),
         column(
-          8,  # Right column for explanations
-          h3("Erläuterungen"),
-          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+          width = 8,
+          p("Beschreibung der Sanierung.")
         )
       )
     ),
-
     tabPanel(
-      "Sanitärausstattung",
-      value = "Sanitärausstattung",
+      title = "Sanitärausstattung",
       fluidRow(
         column(
-          4,  # Left column for inputs
-          h3("Sanitärausstattung auswählen"),
+          width = 4,
           checkboxGroupInput("sanitär", "Wählen Sie aus:", choices = sanitär_items),
           textOutput("sanitär_zuschlag")
         ),
         column(
-          8,  # Right column for explanations
-          h3("Erläuterungen"),
-          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+          width = 8,
+          p("Beschreibung der Sanitärausstattung.")
         )
       )
     ),
-
     tabPanel(
-      "Beschaffenheit",
-      value = "Beschaffenheit",
+      title = "Beschaffenheit",
       fluidRow(
         column(
-          4,  # Left column for inputs
-          h3("Weitere Ausstattungsmerkmale"),
+          width = 4,
           checkboxGroupInput("ausstattung", "Wählen Sie aus:", choices = names(ausstattung_items)),
           textOutput("ausstattung_zuschlag")
         ),
         column(
-          8,  # Right column for explanations
-          h3("Erläuterungen"),
-          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+          width = 8,
+          p("Beschreibung der Beschaffenheit.")
+        )
+      )
+    ),
+    tabPanel(
+      title = "Ergebnis",
+      fluidRow(
+        column(
+          width = 4,
+          h3("Zusammenfassung der Wohnungsgröße"),
+          textOutput("summary_GROESSE"),
+          textOutput("summary_low_value"),
+          uiOutput("summary_med_value"),
+          textOutput("summary_hi_value"),
+
+          h3("Zusammenfassung der Adresse"),
+          textOutput("zusammenfassung_wohnlage"),
+
+          h3("Zusammenfassung des Baujahrs"),
+          textOutput("zusammenfassung_baujahr"),
+
+          h3("Zusammenfassung der Sanierung"),
+          textOutput("zusammenfassung_sanierung"),
+
+          h3("Zusammenfassung der Sanitärausstattung"),
+          textOutput("zusammenfassung_sanitär"),
+
+          h3("Zusammenfassung der Beschaffenheit"),
+          textOutput("zusammenfassung_beschaffenheit")
+        ),
+        column(
+          width = 8,
+          p("Dies ist die Ergebnisübersicht.")
         )
       )
     )
@@ -169,67 +148,18 @@ ui <- fluidPage(
 # Define Server
 server <- function(input, output, session) {
 
-  # Initialize all tabs as red
-  observe({
-    addClass(selector = "a[data-value='Wohnungsgröße']", class = "red-tab")
-    addClass(selector = "a[data-value='Adresse']", class = "red-tab")
-    addClass(selector = "a[data-value='Baujahr']", class = "red-tab")
-    addClass(selector = "a[data-value='Sanierung']", class = "red-tab")
-    addClass(selector = "a[data-value='Sanitärausstattung']", class = "red-tab")
-    addClass(selector = "a[data-value='Beschaffenheit']", class = "red-tab")
-  })
+  # Define color palettes for map markers
+  color_palette <- colorFactor(
+    palette = marker_colors,  # Use the predefined marker colors
+    domain = c("A", "B", "C") # The categories of the Wohnlage
+  )
 
-  # Update tab colors based on interactions
-  observeEvent(input$groesse, {
-    if (input$groesse != "") {
-      removeClass(selector = "a[data-value='Wohnungsgröße']", class = "red-tab")
-      addClass(selector = "a[data-value='Wohnungsgröße']", class = "green-tab")
-    }
-  })
+  border_palette <- colorFactor(
+    palette = border_colors,  # Use the predefined border colors
+    domain = c("A", "B", "C") # The categories of the Wohnlage
+  )
 
-  observeEvent(input$strasse, {
-    if (input$strasse != "") {
-      removeClass(selector = "a[data-value='Adresse']", class = "red-tab")
-      addClass(selector = "a[data-value='Adresse']", class = "green-tab")
-    }
-  })
-
-  observeEvent(input$hausnummer, {
-    if (input$hausnummer != "") {
-      removeClass(selector = "a[data-value='Adresse']", class = "red-tab")
-      addClass(selector = "a[data-value='Adresse']", class = "green-tab")
-    }
-  })
-
-  observeEvent(input$baujahr, {
-    if (input$baujahr != "") {
-      removeClass(selector = "a[data-value='Baujahr']", class = "red-tab")
-      addClass(selector = "a[data-value='Baujahr']", class = "green-tab")
-    }
-  })
-
-  observeEvent(input$sanierung, {
-    if (length(input$sanierung) > 0) {
-      removeClass(selector = "a[data-value='Sanierung']", class = "red-tab")
-      addClass(selector = "a[data-value='Sanierung']", class = "green-tab")
-    }
-  })
-
-  observeEvent(input$sanitär, {
-    if (length(input$sanitär) > 0) {
-      removeClass(selector = "a[data-value='Sanitärausstattung']", class = "red-tab")
-      addClass(selector = "a[data-value='Sanitärausstattung']", class = "green-tab")
-    }
-  })
-
-  observeEvent(input$ausstattung, {
-    if (length(input$ausstattung) > 0) {
-      removeClass(selector = "a[data-value='Beschaffenheit']", class = "red-tab")
-      addClass(selector = "a[data-value='Beschaffenheit']", class = "green-tab")
-    }
-  })
-
-  # Render the remaining UI components as before
+  # Wohnungsgröße Logic
   selected_values <- reactive({
     values_list[[as.numeric(input$groesse)]]
   })
@@ -252,28 +182,69 @@ server <- function(input, output, session) {
 
   output$GROESSE <- renderText({
     req(input$groesse)
-    paste("Die Wohnungsgröße von ", names(dropdown_options)[as.numeric(input$groesse)], " ergibt folgende Basiswerte:")
+    paste("Die Wohnungsgröße von ",
+          names(dropdown_options)[as.numeric(input$groesse)],
+          " ergibt folgende Basiswerte:")
   })
 
-  # Dynamically generate the house number dropdown based on the selected street
+  # Summary Outputs for Wohnungsgröße
+  output$summary_low_value <- renderText({
+    req(input$groesse)
+    paste("Basiswert (min):", selected_values()$low, " EUR/m²")
+  })
+
+  output$summary_med_value <- renderUI({
+    req(input$groesse)
+    strong(paste("Basismittelwert:", selected_values()$med, " EUR/m²"),
+           style = "font-weight: bold; font-size: 20px; color: #FF5733;")
+  })
+
+  output$summary_hi_value <- renderText({
+    req(input$groesse)
+    paste("Basiswert (max):", selected_values()$hi, " EUR/m²")
+  })
+
+  output$summary_GROESSE <- renderText({
+    req(input$groesse)
+    paste("Die Wohnungsgröße von ",
+          names(dropdown_options)[as.numeric(input$groesse)],
+          " ergibt folgende Basiswerte:")
+  })
+
+  # Adresse Logic
   output$hausnummer_dropdown <- renderUI({
     req(input$strasse)
     gefilterte_adr <- sf_data %>%
       filter(STRASSE == input$strasse)
-    hausnummern <- create_hausnummer(gefilterte_adr)
+    hausnummern <- gefilterte_adr$HAUSNUMMER
     selectInput("hausnummer", "Hausnummer:", choices = c("", unique(hausnummern)))
   })
 
+  output$wohnlage <- renderText({
+    req(input$strasse, input$hausnummer)
+    gefilterte_adr <- sf_data %>%
+      filter(STRASSE == input$strasse, HAUSNUMMER == input$hausnummer)
+    if (nrow(gefilterte_adr) > 0) {
+      lagekategorie <- gefilterte_adr$WL_2024
+      adjustment <- wohnlage_adjustments[[lagekategorie]]
+      percent_adjustment <- adjustment * 100
+      paste(
+        gefilterte_adr$STRASSE_HS,
+        "liegt in Lagekategorie", lagekategorie,
+        ", Abschlag", sprintf("%.2f", adjustment),
+        "bzw", sprintf("%+.0f%%", percent_adjustment)
+      )
+    } else {
+      return("Keine Daten gefunden")
+    }
+  })
 
-
-  # Render the Leaflet map based on the selected street and house number
+  # Map Logic
   output$map <- renderLeaflet({
     req(input$strasse)
     gefilterte_adr <- sf_data %>%
       filter(STRASSE == input$strasse)
-    color_palette <- colorFactor(marker_colors, domain = c("A", "B", "C"))
-    border_palette <- colorFactor(border_colors, domain = c("A", "B", "C"))
-    map <- leaflet() %>%
+    leaflet() %>%
       addTiles() %>%
       addCircleMarkers(
         data = gefilterte_adr,
@@ -285,84 +256,40 @@ server <- function(input, output, session) {
         stroke = FALSE,
         fillOpacity = 0.8
       )
-    if (!is.null(input$hausnummer) && input$hausnummer != "") {
-      gefilterte_adr <- gefilterte_adr %>%
-        mutate(FullAddress = paste(STRASSE, paste0(HNR, ifelse(is.na(HNRZ), "", HNRZ))))
-      selected_adr <- gefilterte_adr %>%
-        filter(FullAddress == paste(input$strasse, input$hausnummer))
-      if (nrow(selected_adr) > 0) {
-        map <- map %>%
-          addCircleMarkers(
-            data = selected_adr,
-            lng = ~ st_coordinates(geometry)[, 1],
-            lat = ~ st_coordinates(geometry)[, 2],
-            fillColor = ~ color_palette(WL_2024),
-            color = ~ border_palette(WL_2024),
-            weight = 4,
-            radius = 10,
-            stroke = TRUE,
-            fillOpacity = 0.8,
-            popup = ~ paste("Adresse:", FullAddress)
-          )
-      }
-    }
-    map %>%
-      addLegend(
-        position = "bottomright",
-        title = "Legende",
-        colors = marker_colors,
-        labels = c("Lage A", "Lage B", "Lage C"),
-        opacity = 1
-      ) %>%
-      fitBounds(
-        lng1 = min(st_coordinates(gefilterte_adr$geometry)[, 1]),
-        lat1 = min(st_coordinates(gefilterte_adr$geometry)[, 2]),
-        lng2 = max(st_coordinates(gefilterte_adr$geometry)[, 1]),
-        lat2 = max(st_coordinates(gefilterte_adr$geometry)[, 2])
-      )
   })
 
-  # Reactive output for Wohnlage with adjustment
-  output$wohnlage <- renderText({
-    req(input$strasse, input$hausnummer)
-
-    # Filter the data for the selected street and house number using uppercase field names
-    gefilterte_adr <- sf_data %>%
-      filter(STRASSE == input$strasse, HAUSNUMMER == input$hausnummer)
-
-    if (nrow(gefilterte_adr) > 0) {
-      # Extract the necessary information
-      lagekategorie <- gefilterte_adr$WL_2024
-      adjustment <- wohnlage_adjustments[[lagekategorie]]
-      percent_adjustment <- adjustment * 100
-
-      # Construct the output string
-      output_string <- paste(
-        gefilterte_adr$STRASSE_HS,
-        "liegt in Lagekategorie", lagekategorie,
-        ", Abschlag", sprintf("%.2f", adjustment),
-        "bzw", sprintf("%+.0f%%", percent_adjustment)
-      )
-
-      return(output_string)
-    } else {
-      return("Keine Daten gefunden")
-    }
-  })
-
-
-
-
-
-  # Display the percentage based on the selected year range
+  # Baujahr Logic
   output$baujahr_percent <- renderText({
     req(input$baujahr)
-    if (input$baujahr == "") {
-      return(NULL)
-    }
-    percent_value <- year_ranges[input$baujahr]
-    display_value <- display_labels[input$baujahr]
+    percent_value <- year_ranges[[input$baujahr]]
+    display_value <- display_labels[[input$baujahr]]
     paste("Zu-/Abschlag für BJ ", input$baujahr, ": ", display_value, " (", sprintf("%.2f", percent_value), ")", sep = "")
+  })
+
+  # Sanierung Logic
+  output$sanierung_zuschlag <- renderText({
+    if ("Keine Sanierungsmaßnahme bekannt" %in% input$sanierung) {
+      return("Sanierungszuschlag: 0%")
+    } else if (length(input$sanierung) >= 3) {
+      return("Sanierungszuschlag: +6%")
+    } else {
+      return("Sanierungszuschlag: 0%")
+    }
+  })
+
+  # Sanitärausstattung Logic
+  output$sanitär_zuschlag <- renderText({
+    if (length(input$sanitär) >= 3) {
+      return("Sanitärausstattungszuschlag: +6%")
+    } else {
+      return("Sanitärausstattungszuschlag: 0%")
+    }
+  })
+
+  # Beschaffenheit Logic
+  output$ausstattung_zuschlag <- renderText({
+    total_percentage <- sum(unlist(ausstattung_items[input$ausstattung]))
+    paste("Weitere Ausstattungszuschläge: ", sprintf("%.2f%%", total_percentage * 100), sep = "")
   })
 }
 
