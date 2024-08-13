@@ -6,139 +6,139 @@ library(dplyr)
 # Source external scripts
 source("./scripts/load_data.R")
 source("./scripts/define_options.R")
-source("./modules/wohnungsgroesse_module.R")  # Load the Wohnungsgröße module
+
+# Define the create_hausnummer function
+create_hausnummer <- function(data) {
+  data %>%
+    mutate(Hausnummer = paste0(as.character(HNR), ifelse(is.na(HNRZ), "", HNRZ))) %>%
+    arrange(as.numeric(HNR), HNRZ) %>%
+    pull(Hausnummer)
+}
 
 # Define UI
 ui <- fluidPage(
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
 
-  # Include custom styles
-  tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "styles/custom_styles.css")),
-
-  fluidRow(
-    column(
-      6,  # Adjusted to 6 columns width
-      div(
-        class = "custom-accordion",
-
-        # Wohnungsgröße accordion
-        div(
-          class = "card",
-          div(
-            class = "card-header",
-            actionButton("tabWohnungsgröße", "Wohnungsgröße", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseWohnungsgröße")
-          ),
-          div(
-            id = "collapseWohnungsgröße", class = "collapse",
-            div(
-              class = "card-body",
-              wohnungsgroesseUI("wohnungsGrosse") # Call the UI part of the module
-            )
-          )
+  tabsetPanel(
+    # Wohnungsgröße Tab
+    tabPanel(
+      "Wohnungsgröße",
+      fluidRow(
+        column(
+          4,  # Left column for inputs
+          h3("Wohnungsgröße auswählen"),
+          selectInput("groesse", "Auswahl der Wohnungsgröße:", choices = c("", dropdown_options)),
+          textOutput("GROESSE"),
+          textOutput("low_value"),
+          uiOutput("med_value"),
+          textOutput("hi_value")
         ),
-
-        # Adresse accordion
-        div(
-          class = "card",
-          div(
-            class = "card-header",
-            actionButton("tabAdresse", "Adresse", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseAdresse")
-          ),
-          div(
-            id = "collapseAdresse", class = "collapse",
-            div(
-              class = "card-body",
-              fluidRow(
-                column(6,
-                       selectizeInput("strasse", "Straße:",
-                                      choices = c("", strassen),
-                                      options = list(
-                                        create = TRUE,
-                                        highlight = TRUE,
-                                        placeholder = "Wählen oder suchen Sie eine Straße"
-                                      ))
-                ),
-                column(6,
-                       uiOutput("hausnummer_dropdown")
-                )
-              )
-            )
-          )
-        ),
-
-        # Baujahr accordion
-        div(
-          class = "card",
-          div(
-            class = "card-header",
-            actionButton("tabBaujahr", "Baujahr", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseBaujahr")
-          ),
-          div(
-            id = "collapseBaujahr", class = "collapse",
-            div(
-              class = "card-body",
-              selectInput("baujahr", "Altersklasse:", choices = c("", names(year_ranges))),
-              textOutput("baujahr_percent")
-            )
-          )
-        ),
-
-        # Sanierung accordion
-        div(
-          class = "card",
-          div(
-            class = "card-header",
-            actionButton("tabSanierung", "Sanierung", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseSanierung")
-          ),
-          div(
-            id = "collapseSanierung", class = "collapse",
-            div(
-              class = "card-body",
-              checkboxGroupInput("sanierung", "Wählen Sie durchgeführte Sanierungen aus:", choices = renovation_items),
-              textOutput("sanierung_zuschlag")
-            )
-          )
-        ),
-
-        # Sanitärausstattung accordion
-        div(
-          class = "card",
-          div(
-            class = "card-header",
-            actionButton("tabSanitär", "Sanitärausstattung", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseSanitär")
-          ),
-          div(
-            id = "collapseSanitär", class = "collapse",
-            div(
-              class = "card-body",
-              checkboxGroupInput("sanitär", "Wählen Sie aus:", choices = sanitär_items),
-              textOutput("sanitär_zuschlag")
-            )
-          )
-        ),
-
-        # Beschaffenheit accordion
-        div(
-          class = "card",
-          div(
-            class = "card-header",
-            actionButton("tabBeschaffenheit", "Beschaffenheit", class = "btn btn-light-red", `data-toggle` = "collapse", `data-target` = "#collapseBeschaffenheit")
-          ),
-          div(
-            id = "collapseBeschaffenheit", class = "collapse",
-            div(
-              class = "card-body",
-              checkboxGroupInput("ausstattung", "Wählen Sie aus:", choices = names(ausstattung_items)),
-              textOutput("ausstattung_zuschlag")
-            )
-          )
+        column(
+          8,  # Right column for explanations
+          h3("Erläuterungen"),
+          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
         )
       )
     ),
 
-    column(
-      6,  # Adjusted to 6 columns width
-      leafletOutput("map", height = 400)
+    # Adresse Tab with Nested Tabset
+    tabPanel(
+      "Adresse",
+      fluidRow(
+        column(
+          4,  # Left column for inputs
+          h3("Adresse auswählen"),
+          fluidRow(
+            column(
+              8,  # Street selection
+              selectizeInput("strasse", "Straße:", choices = c("", strassen),
+                             options = list(create = TRUE, highlight = TRUE, placeholder = "Wählen oder suchen Sie eine Straße"))
+            ),
+            column(
+              4,  # House number selection
+              uiOutput("hausnummer_dropdown")
+            )
+          ),
+          leafletOutput("map", height = 300)
+        ),
+        column(
+          8,  # Right column for explanations
+          h3("Erläuterungen"),
+          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+        )
+      )
+    ),
+
+    # Baujahr Tab
+    tabPanel(
+      "Baujahr",
+      fluidRow(
+        column(
+          4,  # Left column for inputs
+          h3("Altersklasse auswählen"),
+          selectInput("baujahr", "Altersklasse:", choices = c("", names(year_ranges))),
+          textOutput("baujahr_percent")
+        ),
+        column(
+          8,  # Right column for explanations
+          h3("Erläuterungen"),
+          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+        )
+      )
+    ),
+
+    # Sanierung Tab
+    tabPanel(
+      "Sanierung",
+      fluidRow(
+        column(
+          4,  # Left column for inputs
+          h3("Sanierung auswählen"),
+          checkboxGroupInput("sanierung", "Wählen Sie durchgeführte Sanierungen aus:", choices = renovation_items),
+          textOutput("sanierung_zuschlag")
+        ),
+        column(
+          8,  # Right column for explanations
+          h3("Erläuterungen"),
+          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+        )
+      )
+    ),
+
+    # Sanitärausstattung Tab
+    tabPanel(
+      "Sanitärausstattung",
+      fluidRow(
+        column(
+          4,  # Left column for inputs
+          h3("Sanitärausstattung auswählen"),
+          checkboxGroupInput("sanitär", "Wählen Sie aus:", choices = sanitär_items),
+          textOutput("sanitär_zuschlag")
+        ),
+        column(
+          8,  # Right column for explanations
+          h3("Erläuterungen"),
+          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+        )
+      )
+    ),
+
+    # Beschaffenheit Tab
+    tabPanel(
+      "Beschaffenheit",
+      fluidRow(
+        column(
+          4,  # Left column for inputs
+          h3("Weitere Ausstattungsmerkmale"),
+          checkboxGroupInput("ausstattung", "Wählen Sie aus:", choices = names(ausstattung_items)),
+          textOutput("ausstattung_zuschlag")
+        ),
+        column(
+          8,  # Right column for explanations
+          h3("Erläuterungen"),
+          p("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")
+        )
+      )
     )
   )
 )
@@ -146,89 +146,39 @@ ui <- fluidPage(
 # Define Server
 server <- function(input, output, session) {
 
-  # Call the Wohnungsgröße module server part
-  wohnungsgroesseServer("wohnungsGrosse")
-
-  # Custom message handler for tab color updates
-  observe({
-    session$onFlushed(function() {
-      session$sendCustomMessage(type = "updateTabColor", list(tabId = "tabWohnungsgröße", colorClass = "btn-light-green"))
-    }, once = TRUE)
+  # Reactively get the selected size values
+  selected_values <- reactive({
+    values_list[[as.numeric(input$groesse)]]
   })
 
-  # Define the create_hausnummer function
-  create_hausnummer <- function(data) {
-    data %>%
-      mutate(Hausnummer = paste0(as.character(HNR), ifelse(is.na(HNRZ), "", HNRZ))) %>%
-      arrange(as.numeric(HNR), HNRZ) %>%
-      pull(Hausnummer)
-  }
+  output$low_value <- renderText({
+    req(input$groesse)
+    paste("Basiswert (min):", selected_values()$low, " EUR/m²")
+  })
 
-  # Address dropdown dynamic generation
+  output$med_value <- renderUI({
+    req(input$groesse)
+    strong(paste("Basismittelwert:", selected_values()$med, " EUR/m²"),
+           style = "font-weight: bold; font-size: 20px; color: #FF5733;")
+  })
+
+  output$hi_value <- renderText({
+    req(input$groesse)
+    paste("Basiswert (max):", selected_values()$hi, " EUR/m²")
+  })
+
+  output$GROESSE <- renderText({
+    req(input$groesse)
+    paste("Die Wohnungsgröße von ", names(dropdown_options)[as.numeric(input$groesse)], " ergibt folgende Basiswerte:")
+  })
+
+  # Dynamically generate the house number dropdown based on the selected street
   output$hausnummer_dropdown <- renderUI({
     req(input$strasse)
     gefilterte_adr <- sf_data %>%
       filter(STRASSE == input$strasse)
     hausnummern <- create_hausnummer(gefilterte_adr)
     selectInput("hausnummer", "Hausnummer:", choices = c("", unique(hausnummern)))
-  })
-
-  # Observe other tab actions and update colors accordingly
-  observeEvent(input$strasse, {
-    if (input$strasse != "") {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabAdresse", colorClass = "btn-light-green"))
-    }
-  })
-
-  observeEvent(input$baujahr, {
-    if (input$baujahr != "") {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabBaujahr", colorClass = "btn-light-green"))
-    }
-  })
-
-  observeEvent(input$sanierung, {
-    if ("Keine Sanierungsmaßnahme bekannt" %in% input$sanierung) {
-      updateCheckboxGroupInput(session, "sanierung", selected = "Keine Sanierungsmaßnahme bekannt", choices = renovation_items)
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanierung", colorClass = "btn-light-green"))
-      output$sanierung_zuschlag <- renderText({
-        "Sanierungszuschlag: 0%"
-      })
-    } else {
-      updateCheckboxGroupInput(session, "sanierung", selected = input$sanierung, choices = renovation_items[-1])
-      if (length(input$sanierung) >= 3) {
-        session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanierung", colorClass = "btn-light-green"))
-        output$sanierung_zuschlag <- renderText({
-          paste("Sanierungszuschlag: +6%")
-        })
-      } else {
-        output$sanierung_zuschlag <- renderText({
-          "Sanierungszuschlag: 0%"
-        })
-      }
-    }
-  })
-
-  observeEvent(input$sanitär, {
-    if (length(input$sanitär) >= 3) {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabSanitär", colorClass = "btn-light-green"))
-      output$sanitär_zuschlag <- renderText({
-        paste("Sanitärausstattungszuschlag: +6%")
-      })
-    } else {
-      output$sanitär_zuschlag <- renderText({
-        "Sanitärausstattungszuschlag: 0%"
-      })
-    }
-  })
-
-  observeEvent(input$ausstattung, {
-    total_percentage <- sum(unlist(ausstattung_items[input$ausstattung]))
-    if (length(input$ausstattung) > 0) {
-      session$sendCustomMessage(type = "updateTabColor", message = list(tabId = "tabBeschaffenheit", colorClass = "btn-light-green"))
-    }
-    output$ausstattung_zuschlag <- renderText({
-      paste("Weitere Ausstattungszuschläge: ", sprintf("%.2f%%", total_percentage * 100), sep = "")
-    })
   })
 
   # Render the Leaflet map based on the selected street and house number
@@ -285,6 +235,53 @@ server <- function(input, output, session) {
         lng2 = max(st_coordinates(gefilterte_adr$geometry)[, 1]),
         lat2 = max(st_coordinates(gefilterte_adr$geometry)[, 2])
       )
+  })
+
+  # Render the report based on user inputs
+  output$report <- renderUI({
+    req(input$groesse, input$strasse, input$hausnummer, input$baujahr)
+
+    report_path <- tempfile(fileext = ".html")
+    quarto::quarto_render(
+      input = "./reports/report.qmd",
+      output_file = report_path,
+      execute_params = list(
+        groesse = input$groesse,
+        strasse = input$strasse,
+        hausnummer = input$hausnummer,
+        baujahr = input$baujahr,
+        sanierung = input$sanierung,
+        sanitär = input$sanitär,
+        ausstattung = input$ausstattung
+      )
+    )
+
+    tags$iframe(src = report_path, width = "100%", height = "800px")
+  })
+
+  # Handle other selections and updates
+  observeEvent(input$baujahr, {
+    if (input$baujahr != "") {
+      updateActionButton(session, "baujahr", label = "Baujahr (completed)")
+    }
+  })
+
+  observeEvent(input$sanierung, {
+    if ("Keine Sanierungsmaßnahme bekannt" %in% input$sanierung || length(input$sanierung) >= 3) {
+      updateActionButton(session, "sanierung", label = "Sanierung (completed)")
+    }
+  })
+
+  observeEvent(input$sanitär, {
+    if (length(input$sanitär) >= 3) {
+      updateActionButton(session, "sanitär", label = "Sanitärausstattung (completed)")
+    }
+  })
+
+  observeEvent(input$ausstattung, {
+    if (length(input$ausstattung) > 0) {
+      updateActionButton(session, "ausstattung", label = "Beschaffenheit (completed)")
+    }
   })
 
   # Display the percentage based on the selected year range
