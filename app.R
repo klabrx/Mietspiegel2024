@@ -2,6 +2,7 @@ library(shiny)
 library(leaflet)
 library(sf)
 library(dplyr)
+library(shinyjs)
 
 # Source external scripts
 source("./scripts/load_data.R")
@@ -17,12 +18,33 @@ create_hausnummer <- function(data) {
 
 # Define UI
 ui <- fluidPage(
+  useShinyjs(),  # Include shinyjs
+
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
 
+  # Custom CSS for tab colors
+  tags$head(
+    tags$style(HTML("
+      .nav-pills .nav-link.red-tab {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      .nav-pills .nav-link.green-tab {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .nav-pills .nav-link {
+        margin-right: 5px;
+        border-radius: 5px;
+      }
+    "))
+  ),
+
   tabsetPanel(
-    # Wohnungsgröße Tab
+    id = "mainTabs",
     tabPanel(
       "Wohnungsgröße",
+      value = "Wohnungsgröße",
       fluidRow(
         column(
           4,  # Left column for inputs
@@ -41,9 +63,9 @@ ui <- fluidPage(
       )
     ),
 
-    # Adresse Tab with Nested Tabset
     tabPanel(
       "Adresse",
+      value = "Adresse",
       fluidRow(
         column(
           4,  # Left column for inputs
@@ -59,7 +81,8 @@ ui <- fluidPage(
               uiOutput("hausnummer_dropdown")
             )
           ),
-          leafletOutput("map", height = 300)
+          leafletOutput("map", height = 300),
+          textOutput("wohnlage")  # New output for Wohnlage
         ),
         column(
           8,  # Right column for explanations
@@ -69,9 +92,9 @@ ui <- fluidPage(
       )
     ),
 
-    # Baujahr Tab
     tabPanel(
       "Baujahr",
+      value = "Baujahr",
       fluidRow(
         column(
           4,  # Left column for inputs
@@ -87,9 +110,9 @@ ui <- fluidPage(
       )
     ),
 
-    # Sanierung Tab
     tabPanel(
       "Sanierung",
+      value = "Sanierung",
       fluidRow(
         column(
           4,  # Left column for inputs
@@ -105,9 +128,9 @@ ui <- fluidPage(
       )
     ),
 
-    # Sanitärausstattung Tab
     tabPanel(
       "Sanitärausstattung",
+      value = "Sanitärausstattung",
       fluidRow(
         column(
           4,  # Left column for inputs
@@ -123,9 +146,9 @@ ui <- fluidPage(
       )
     ),
 
-    # Beschaffenheit Tab
     tabPanel(
       "Beschaffenheit",
+      value = "Beschaffenheit",
       fluidRow(
         column(
           4,  # Left column for inputs
@@ -146,7 +169,67 @@ ui <- fluidPage(
 # Define Server
 server <- function(input, output, session) {
 
-  # Reactively get the selected size values
+  # Initialize all tabs as red
+  observe({
+    addClass(selector = "a[data-value='Wohnungsgröße']", class = "red-tab")
+    addClass(selector = "a[data-value='Adresse']", class = "red-tab")
+    addClass(selector = "a[data-value='Baujahr']", class = "red-tab")
+    addClass(selector = "a[data-value='Sanierung']", class = "red-tab")
+    addClass(selector = "a[data-value='Sanitärausstattung']", class = "red-tab")
+    addClass(selector = "a[data-value='Beschaffenheit']", class = "red-tab")
+  })
+
+  # Update tab colors based on interactions
+  observeEvent(input$groesse, {
+    if (input$groesse != "") {
+      removeClass(selector = "a[data-value='Wohnungsgröße']", class = "red-tab")
+      addClass(selector = "a[data-value='Wohnungsgröße']", class = "green-tab")
+    }
+  })
+
+  observeEvent(input$strasse, {
+    if (input$strasse != "") {
+      removeClass(selector = "a[data-value='Adresse']", class = "red-tab")
+      addClass(selector = "a[data-value='Adresse']", class = "green-tab")
+    }
+  })
+
+  observeEvent(input$hausnummer, {
+    if (input$hausnummer != "") {
+      removeClass(selector = "a[data-value='Adresse']", class = "red-tab")
+      addClass(selector = "a[data-value='Adresse']", class = "green-tab")
+    }
+  })
+
+  observeEvent(input$baujahr, {
+    if (input$baujahr != "") {
+      removeClass(selector = "a[data-value='Baujahr']", class = "red-tab")
+      addClass(selector = "a[data-value='Baujahr']", class = "green-tab")
+    }
+  })
+
+  observeEvent(input$sanierung, {
+    if (length(input$sanierung) > 0) {
+      removeClass(selector = "a[data-value='Sanierung']", class = "red-tab")
+      addClass(selector = "a[data-value='Sanierung']", class = "green-tab")
+    }
+  })
+
+  observeEvent(input$sanitär, {
+    if (length(input$sanitär) > 0) {
+      removeClass(selector = "a[data-value='Sanitärausstattung']", class = "red-tab")
+      addClass(selector = "a[data-value='Sanitärausstattung']", class = "green-tab")
+    }
+  })
+
+  observeEvent(input$ausstattung, {
+    if (length(input$ausstattung) > 0) {
+      removeClass(selector = "a[data-value='Beschaffenheit']", class = "red-tab")
+      addClass(selector = "a[data-value='Beschaffenheit']", class = "green-tab")
+    }
+  })
+
+  # Render the remaining UI components as before
   selected_values <- reactive({
     values_list[[as.numeric(input$groesse)]]
   })
@@ -180,6 +263,8 @@ server <- function(input, output, session) {
     hausnummern <- create_hausnummer(gefilterte_adr)
     selectInput("hausnummer", "Hausnummer:", choices = c("", unique(hausnummern)))
   })
+
+
 
   # Render the Leaflet map based on the selected street and house number
   output$map <- renderLeaflet({
@@ -237,52 +322,37 @@ server <- function(input, output, session) {
       )
   })
 
-  # Render the report based on user inputs
-  output$report <- renderUI({
-    req(input$groesse, input$strasse, input$hausnummer, input$baujahr)
+  # Reactive output for Wohnlage with adjustment
+  output$wohnlage <- renderText({
+    req(input$strasse, input$hausnummer)
 
-    report_path <- tempfile(fileext = ".html")
-    quarto::quarto_render(
-      input = "./reports/report.qmd",
-      output_file = report_path,
-      execute_params = list(
-        groesse = input$groesse,
-        strasse = input$strasse,
-        hausnummer = input$hausnummer,
-        baujahr = input$baujahr,
-        sanierung = input$sanierung,
-        sanitär = input$sanitär,
-        ausstattung = input$ausstattung
+    # Filter the data for the selected street and house number using uppercase field names
+    gefilterte_adr <- sf_data %>%
+      filter(STRASSE == input$strasse, HAUSNUMMER == input$hausnummer)
+
+    if (nrow(gefilterte_adr) > 0) {
+      # Extract the necessary information
+      lagekategorie <- gefilterte_adr$WL_2024
+      adjustment <- wohnlage_adjustments[[lagekategorie]]
+      percent_adjustment <- adjustment * 100
+
+      # Construct the output string
+      output_string <- paste(
+        gefilterte_adr$STRASSE_HS,
+        "liegt in Lagekategorie", lagekategorie,
+        ", Abschlag", sprintf("%.2f", adjustment),
+        "bzw", sprintf("%+.0f%%", percent_adjustment)
       )
-    )
 
-    tags$iframe(src = report_path, width = "100%", height = "800px")
-  })
-
-  # Handle other selections and updates
-  observeEvent(input$baujahr, {
-    if (input$baujahr != "") {
-      updateActionButton(session, "baujahr", label = "Baujahr (completed)")
+      return(output_string)
+    } else {
+      return("Keine Daten gefunden")
     }
   })
 
-  observeEvent(input$sanierung, {
-    if ("Keine Sanierungsmaßnahme bekannt" %in% input$sanierung || length(input$sanierung) >= 3) {
-      updateActionButton(session, "sanierung", label = "Sanierung (completed)")
-    }
-  })
 
-  observeEvent(input$sanitär, {
-    if (length(input$sanitär) >= 3) {
-      updateActionButton(session, "sanitär", label = "Sanitärausstattung (completed)")
-    }
-  })
 
-  observeEvent(input$ausstattung, {
-    if (length(input$ausstattung) > 0) {
-      updateActionButton(session, "ausstattung", label = "Beschaffenheit (completed)")
-    }
-  })
+
 
   # Display the percentage based on the selected year range
   output$baujahr_percent <- renderText({
