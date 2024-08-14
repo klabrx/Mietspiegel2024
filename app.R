@@ -20,30 +20,53 @@ wohnlage_adjustments <- list(
   "C" = -0.10
 )
 
+# JavaScript code to manage cookies
+jsCode <- "
+Shiny.addCustomMessageHandler('setCookie', function(params) {
+  document.cookie = params.name + '=' + params.value + ';path=/';
+});
+
+Shiny.addCustomMessageHandler('removeCookie', function(params) {
+  document.cookie = params.name + '=;path=/;expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+});
+
+function getCookie(name) {
+  let cookieArr = document.cookie.split(';');
+  for (let i = 0; i < cookieArr.length; i++) {
+    let cookiePair = cookieArr[i].split('=');
+    if (name == cookiePair[0].trim()) {
+      return decodeURIComponent(cookiePair[1]);
+    }
+  }
+  return null;
+}
+
+Shiny.addCustomMessageHandler('getCookie', function(name) {
+  var cookieValue = getCookie(name);
+  Shiny.setInputValue('cookie', cookieValue);
+});
+"
+
 # UI ----
 ui <- fluidPage(
+  tags$head(
+    tags$script(HTML(jsCode)),
+    tags$link(rel = "stylesheet", type = "text/css", href = "styles/custom_styles.css")
+  ),
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
   tabsetPanel(
     id = "main_tabs",
-
-    # UI Einleitung ----
     tabPanel(
       title = "Einleitung",
-      fluidRow(
-        column(
-          width = 8,
-          h3("Einleitung"),
-          p("Willkommen zur Anwendung 'Qualifizierter Mietspiegel der Stadt Passau ab 2024'."),
-          p("Diese App dient dazu, die ortsübliche Vergleichsmiete für Ihre Wohnung in Passau zu berechnen.
-            Bitte beachten Sie, dass alle Ihre Eingaben vertraulich behandelt werden und nicht gespeichert werden."),
-          p("Die Berechnungen basieren auf der Wohnungsgröße, dem Baujahr, der Ausstattung und weiteren Faktoren."),
-          checkboxInput("accept_terms", "Ich habe die Bedingungen gelesen und akzeptiere sie."),
-          actionButton("proceed", "Weiter")
-        )
-      )
+      h3("Willkommen zum Mietspiegel der Stadt Passau ab 2024"),
+      p("Bevor Sie die Anwendung nutzen, lesen Sie bitte die folgenden Informationen sorgfältig durch."),
+      p("Diese Anwendung dient zur Berechnung der ortsüblichen Vergleichsmiete basierend auf verschiedenen Kriterien wie Wohnungsgröße, Baujahr, Sanierung und Ausstattung."),
+      p("Durch die Nutzung dieser Anwendung stimmen Sie der Verarbeitung der von Ihnen eingegebenen Daten zu."),
+      p("Wir speichern keine persönlichen Daten. Ihre Eingaben werden ausschließlich zur Berechnung der Mietspiegelwerte verwendet und nicht gespeichert."),
+      p("Bitte bestätigen Sie, dass Sie die Informationen gelesen und verstanden haben."),
+      actionButton("accept_terms", "Ich habe die Informationen gelesen und stimme zu."),
+      checkboxInput("skip_intro", "Diese Seite künftig überspringen", value = FALSE)
     ),
-
-    # UI Wohnungsgröße ----
     tabPanel(
       title = "Wohnungsgröße",
       fluidRow(
@@ -57,13 +80,11 @@ ui <- fluidPage(
         ),
         column(
           width = 8,
-          h3("Informationen zur Wohnungsgröße"),  # Added header
-          uiOutput("description_Wohnungsgroesse")  # Dynamic description output
+          h3("Informationen zur Wohnungsgröße"),
+          uiOutput("description_Wohnungsgroesse")
         )
       )
     ),
-
-    # UI Adresse, Map ----
     tabPanel(
       title = "Adresse",
       fluidRow(
@@ -72,17 +93,15 @@ ui <- fluidPage(
           selectizeInput("strasse", "Straße:", choices = c("", strassen),
                          options = list(create = TRUE, highlight = TRUE, placeholder = "Wählen oder suchen Sie eine Straße")),
           uiOutput("hausnummer_dropdown"),
-          leafletOutput("map", height = 300)  # Adding the map below the dropdowns
+          leafletOutput("map", height = 300)
         ),
         column(
           width = 8,
-          h3("Adresse, Wohnlage"),  # Added header
-          uiOutput("description_Adresse")  # Dynamic description output
+          h3("Adresse, Wohnlage"),
+          uiOutput("description_Adresse")
         )
       )
     ),
-
-    # UI Baujahresklasse ----
     tabPanel(
       title = "Baujahr",
       fluidRow(
@@ -90,18 +109,16 @@ ui <- fluidPage(
           width = 4,
           selectInput("baujahr", "Altersklasse:",
                       choices = c("", setNames(names(year_ranges), paste(names(year_ranges), display_labels, sep = " "))),
-                      selected = ""),  # Start with an empty selection
+                      selected = ""),
           textOutput("baujahr_percent")
         ),
         column(
           width = 8,
-          h3("Baujahr, Altersklasse"),  # Added header
-          uiOutput("description_Baujahr")  # Dynamic description output
+          h3("Baujahr, Altersklasse"),
+          uiOutput("description_Baujahr")
         )
       )
     ),
-
-    # UI Sanierung ----
     tabPanel(
       title = "Sanierung",
       fluidRow(
@@ -116,8 +133,6 @@ ui <- fluidPage(
         )
       )
     ),
-
-    # UI Sanitärausstatung ----
     tabPanel(
       title = "Sanitärausstattung",
       fluidRow(
@@ -132,8 +147,6 @@ ui <- fluidPage(
         )
       )
     ),
-
-    # UI Beschaffenheit, sonstige Ausstattung ----
     tabPanel(
       title = "Beschaffenheit",
       fluidRow(
@@ -148,8 +161,6 @@ ui <- fluidPage(
         )
       )
     ),
-
-    # UI Ergebnisseite ----
     tabPanel(
       title = "Ergebnis",
       fluidRow(
@@ -160,19 +171,14 @@ ui <- fluidPage(
           textOutput("summary_low_value"),
           uiOutput("summary_med_value"),
           textOutput("summary_hi_value"),
-
           h3("Zusammenfassung der Adresse"),
           textOutput("zusammenfassung_wohnlage"),
-
           h3("Zusammenfassung des Baujahrs"),
           textOutput("zusammenfassung_baujahr"),
-
           h3("Zusammenfassung der Sanierung"),
           textOutput("zusammenfassung_sanierung"),
-
           h3("Zusammenfassung der Sanitärausstattung"),
           textOutput("zusammenfassung_sanitaer"),
-
           h3("Zusammenfassung der Beschaffenheit"),
           textOutput("zusammenfassung_beschaffenheit")
         ),
@@ -188,28 +194,37 @@ ui <- fluidPage(
 # Define Server ----
 server <- function(input, output, session) {
 
-  # Define color palettes for map markers ----
-  color_palette <- colorFactor(
-    palette = marker_colors,  # Use the predefined marker colors
-    domain = c("A", "B", "C") # The categories of the Wohnlage
-  )
-
-  border_palette <- colorFactor(
-    palette = border_colors,  # Use the predefined border colors
-    domain = c("A", "B", "C") # The categories of the Wohnlage
-  )
-
-  # Disable tabs until terms are accepted
+  # Check if the user has previously accepted the terms
   observe({
-    shinyjs::toggleState(selector = '#main_tabs li', condition = input$accept_terms)
+    session$sendCustomMessage("getCookie", "terms_accepted")
   })
 
-  # Logic to switch to the first tab after proceeding
-  observeEvent(input$proceed, {
-    if (input$accept_terms) {
+  observeEvent(input$cookie, {
+    if (input$cookie == "TRUE") {
       updateTabsetPanel(session, "main_tabs", selected = "Wohnungsgröße")
     }
   })
+
+  # Handle the acceptance of the terms
+  observeEvent(input$accept_terms, {
+    if (input$accept_terms > 0) {
+      if (input$skip_intro) {
+        session$sendCustomMessage("setCookie", list(name = "terms_accepted", value = "TRUE"))
+      }
+      updateTabsetPanel(session, "main_tabs", selected = "Wohnungsgröße")
+    }
+  })
+
+  # Define color palettes for map markers ----
+  color_palette <- colorFactor(
+    palette = marker_colors,
+    domain = c("A", "B", "C")
+  )
+
+  border_palette <- colorFactor(
+    palette = border_colors,
+    domain = c("A", "B", "C")
+  )
 
   # Wohnungsgröße Logic
   selected_values <- reactive({
@@ -381,7 +396,7 @@ server <- function(input, output, session) {
     paste("Weitere Ausstattungszuschläge: ", sprintf("%.2f%%", total_percentage * 100), sep = "")
   })
 
-  # DynRext Wohnungsgröße ----
+  # DynText Wohnungsgröße ----
   output$description_Wohnungsgroesse <- renderUI({
     req(input$groesse)  # Ensure that a selection is made
 
@@ -409,7 +424,6 @@ server <- function(input, output, session) {
   })
 
   # DynText Adresse ----
-
   output$description_Adresse <- renderUI({
     req(input$strasse, input$hausnummer)  # Ensure that both street and house number are selected
 
@@ -446,7 +460,7 @@ server <- function(input, output, session) {
     }
   })
 
-  # DanText Altersklasse ----
+  # DynText Altersklasse ----
   output$description_Baujahr <- renderUI({
     req(input$baujahr)  # Ensure that a selection is made
 
@@ -472,9 +486,6 @@ server <- function(input, output, session) {
     # Render the text as HTML
     HTML(description_text)
   })
-
-
-
 }
 
 # Run the application
