@@ -20,7 +20,7 @@ renovation_items <- c(
 renovation_items <- c("Keine Sanierungsmaßnahme bekannt", renovation_items)
 
 # Define Sanitärausstattung items
-sanitär_items <- c(
+sanitaer_items <- c(
   "zwei oder mehr abgeschlossene Badezimmer in der Wohnung vorhanden",
   "zweites WC/Gäste-WC vorhanden",
   "(separate) Einzeldusche",
@@ -44,3 +44,10 @@ ausstattung_items <- list(
 # Define consistent color codes for map markers and legend
 marker_colors <- c("#FF0000", "#0000FF", "#00FF00") # Red, Blue, Green
 border_colors <- c("#8B0000", "#00008B", "#006400") # Darker Red, Darker Blue, Darker Green
+
+# Define Wohnlage adjustment values
+wohnlage_adjustments <- list(
+  "A" = 0.00,  # No adjustment
+  "B" = -0.07, # 7% decrease
+  "C" = -0.10  # 10% decrease
+)

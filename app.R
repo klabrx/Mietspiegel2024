@@ -25,7 +25,25 @@ ui <- fluidPage(
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
   tabsetPanel(
     id = "main_tabs",
-# UI Wohnungsgröße ----
+
+    # UI Einleitung ----
+    tabPanel(
+      title = "Einleitung",
+      fluidRow(
+        column(
+          width = 8,
+          h3("Einleitung"),
+          p("Willkommen zur Anwendung 'Qualifizierter Mietspiegel der Stadt Passau ab 2024'."),
+          p("Diese App dient dazu, die ortsübliche Vergleichsmiete für Ihre Wohnung in Passau zu berechnen.
+            Bitte beachten Sie, dass alle Ihre Eingaben vertraulich behandelt werden und nicht gespeichert werden."),
+          p("Die Berechnungen basieren auf der Wohnungsgröße, dem Baujahr, der Ausstattung und weiteren Faktoren."),
+          checkboxInput("accept_terms", "Ich habe die Bedingungen gelesen und akzeptiere sie."),
+          actionButton("proceed", "Weiter")
+        )
+      )
+    ),
+
+    # UI Wohnungsgröße ----
     tabPanel(
       title = "Wohnungsgröße",
       fluidRow(
@@ -43,51 +61,47 @@ ui <- fluidPage(
           uiOutput("description_Wohnungsgroesse")  # Dynamic description output
         )
       )
-    )
-    ,
-# UI Adresse, Map ----
-tabPanel(
-  title = "Adresse",
-  fluidRow(
-    column(
-      width = 4,
-      selectizeInput("strasse", "Straße:", choices = c("", strassen),
-                     options = list(create = TRUE, highlight = TRUE, placeholder = "Wählen oder suchen Sie eine Straße")),
-      uiOutput("hausnummer_dropdown"),
-      leafletOutput("map", height = 300)  # Adding the map below the dropdowns
     ),
-    column(
-      width = 8,
-      h3("Adresse, Wohnlage"),  # Added header
-      uiOutput("description_Adresse")  # Dynamic description output
-    )
-  )
-)
-,
-# UI Baujahresklasse ----
-tabPanel(
-  title = "Baujahr",
-  fluidRow(
-    column(
-      width = 4,
-      selectInput("baujahr", "Altersklasse:",
-                  choices = c("", setNames(names(year_ranges), paste(names(year_ranges), display_labels, sep = " "))),
-                  selected = ""),  # Start with an empty selection
-      textOutput("baujahr_percent")
+
+    # UI Adresse, Map ----
+    tabPanel(
+      title = "Adresse",
+      fluidRow(
+        column(
+          width = 4,
+          selectizeInput("strasse", "Straße:", choices = c("", strassen),
+                         options = list(create = TRUE, highlight = TRUE, placeholder = "Wählen oder suchen Sie eine Straße")),
+          uiOutput("hausnummer_dropdown"),
+          leafletOutput("map", height = 300)  # Adding the map below the dropdowns
+        ),
+        column(
+          width = 8,
+          h3("Adresse, Wohnlage"),  # Added header
+          uiOutput("description_Adresse")  # Dynamic description output
+        )
+      )
     ),
-    column(
-      width = 8,
-      h3("Baujahr, Altersklasse"),  # Added header
-      uiOutput("description_Baujahr")  # Dynamic description output
-    )
-  )
-)
 
+    # UI Baujahresklasse ----
+    tabPanel(
+      title = "Baujahr",
+      fluidRow(
+        column(
+          width = 4,
+          selectInput("baujahr", "Altersklasse:",
+                      choices = c("", setNames(names(year_ranges), paste(names(year_ranges), display_labels, sep = " "))),
+                      selected = ""),  # Start with an empty selection
+          textOutput("baujahr_percent")
+        ),
+        column(
+          width = 8,
+          h3("Baujahr, Altersklasse"),  # Added header
+          uiOutput("description_Baujahr")  # Dynamic description output
+        )
+      )
+    ),
 
-
-
-,
-# UI Sanierung ----
+    # UI Sanierung ----
     tabPanel(
       title = "Sanierung",
       fluidRow(
@@ -102,7 +116,8 @@ tabPanel(
         )
       )
     ),
-# UI Sanitärausstatung ----
+
+    # UI Sanitärausstatung ----
     tabPanel(
       title = "Sanitärausstattung",
       fluidRow(
@@ -117,7 +132,8 @@ tabPanel(
         )
       )
     ),
-# UI Beschaffenheit, sonstige Ausstattung ----
+
+    # UI Beschaffenheit, sonstige Ausstattung ----
     tabPanel(
       title = "Beschaffenheit",
       fluidRow(
@@ -132,7 +148,8 @@ tabPanel(
         )
       )
     ),
-# UI Ergebnisseite ----
+
+    # UI Ergebnisseite ----
     tabPanel(
       title = "Ergebnis",
       fluidRow(
@@ -181,6 +198,18 @@ server <- function(input, output, session) {
     palette = border_colors,  # Use the predefined border colors
     domain = c("A", "B", "C") # The categories of the Wohnlage
   )
+
+  # Disable tabs until terms are accepted
+  observe({
+    shinyjs::toggleState(selector = '#main_tabs li', condition = input$accept_terms)
+  })
+
+  # Logic to switch to the first tab after proceeding
+  observeEvent(input$proceed, {
+    if (input$accept_terms) {
+      updateTabsetPanel(session, "main_tabs", selected = "Wohnungsgröße")
+    }
+  })
 
   # Wohnungsgröße Logic
   selected_values <- reactive({
@@ -318,9 +347,6 @@ server <- function(input, output, session) {
     map
   })
 
-
-
-
   # Baujahr Logic
   output$baujahr_percent <- renderText({
     req(input$baujahr)
@@ -382,7 +408,7 @@ server <- function(input, output, session) {
     HTML(description_text)
   })
 
-# DynText Adresse ----
+  # DynText Adresse ----
 
   output$description_Adresse <- renderUI({
     req(input$strasse, input$hausnummer)  # Ensure that both street and house number are selected
@@ -420,7 +446,7 @@ server <- function(input, output, session) {
     }
   })
 
-# DanText Altersklasse ----
+  # DanText Altersklasse ----
   output$description_Baujahr <- renderUI({
     req(input$baujahr)  # Ensure that a selection is made
 
