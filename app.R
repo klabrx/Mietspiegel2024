@@ -6,6 +6,10 @@ library(dplyr)
 # Load Data
 load("./data/adr_2024.RData")
 
+# Source external scripts
+source("./scripts/load_data.R")        # Load data script
+source("./scripts/define_options.R")   # Define options script
+
 # Extract unique street names and sort them alphabetically
 strassen <- sort(unique(sf_data$STRASSE))
 
@@ -87,8 +91,8 @@ ui <- fluidPage(
       fluidRow(
         column(
           width = 4,
-          checkboxGroupInput("sanitär", "Wählen Sie aus:", choices = sanitär_items),
-          textOutput("sanitär_zuschlag")
+          checkboxGroupInput("sanitaer", "Wählen Sie aus:", choices = sanitaer_items),
+          textOutput("sanitaer_zuschlag")
         ),
         column(
           width = 8,
@@ -131,7 +135,7 @@ ui <- fluidPage(
           textOutput("zusammenfassung_sanierung"),
 
           h3("Zusammenfassung der Sanitärausstattung"),
-          textOutput("zusammenfassung_sanitär"),
+          textOutput("zusammenfassung_sanitaer"),
 
           h3("Zusammenfassung der Beschaffenheit"),
           textOutput("zusammenfassung_beschaffenheit")
@@ -242,9 +246,12 @@ server <- function(input, output, session) {
   # Map Logic
   output$map <- renderLeaflet({
     req(input$strasse)
+
     gefilterte_adr <- sf_data %>%
       filter(STRASSE == input$strasse)
-    leaflet() %>%
+
+    # Base map with zoom controls disabled
+    map <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
       addTiles() %>%
       addCircleMarkers(
         data = gefilterte_adr,
@@ -256,7 +263,44 @@ server <- function(input, output, session) {
         stroke = FALSE,
         fillOpacity = 0.8
       )
+
+    # Check if a house number is selected
+    if (!is.null(input$hausnummer) && input$hausnummer != "" && nrow(gefilterte_adr) > 0) {
+      selected_adr <- gefilterte_adr %>%
+        filter(HAUSNUMMER == input$hausnummer)
+
+      if (nrow(selected_adr) > 0) {
+        map <- map %>%
+          addCircleMarkers(
+            data = selected_adr,
+            lng = ~ st_coordinates(geometry)[, 1],
+            lat = ~ st_coordinates(geometry)[, 2],
+            fillColor = ~ color_palette(WL_2024),
+            color = ~ border_palette(WL_2024),  # Darker border color
+            weight = 4,                         # Border thickness
+            radius = 10,                        # Larger radius for selected address
+            stroke = TRUE,
+            fillOpacity = 0.8,
+            popup = ~ paste("Adresse:", STRASSE_HS)  # Optional: Popup with address info
+          )
+      }
+    }
+
+    # Add a legend for Wohnlage A/B/C at the bottom right
+    map <- map %>%
+      addLegend(
+        position = "bottomright",
+        title = "Wohnlage",
+        colors = c("#FF0000", "#0000FF", "#00FF00"),  # Match colors with marker_colors
+        labels = c("Wohnlage A", "Wohnlage B", "Wohnlage C"),
+        opacity = 1
+      )
+
+    map
   })
+
+
+
 
   # Baujahr Logic
   output$baujahr_percent <- renderText({
@@ -278,8 +322,8 @@ server <- function(input, output, session) {
   })
 
   # Sanitärausstattung Logic
-  output$sanitär_zuschlag <- renderText({
-    if (length(input$sanitär) >= 3) {
+  output$sanitaer_zuschlag <- renderText({
+    if (length(input$sanitaer) >= 3) {
       return("Sanitärausstattungszuschlag: +6%")
     } else {
       return("Sanitärausstattungszuschlag: 0%")
