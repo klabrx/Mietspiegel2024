@@ -20,11 +20,12 @@ wohnlage_adjustments <- list(
   "C" = -0.10
 )
 
-# Define UI
+# UI ----
 ui <- fluidPage(
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
   tabsetPanel(
     id = "main_tabs",
+# UI Wohnungsgröße ----
     tabPanel(
       title = "Wohnungsgröße",
       fluidRow(
@@ -38,40 +39,55 @@ ui <- fluidPage(
         ),
         column(
           width = 8,
-          p("Beschreibung der Wohnungsgröße.")
+          h3("Informationen zur Wohnungsgröße"),  # Added header
+          uiOutput("description_Wohnungsgroesse")  # Dynamic description output
         )
       )
+    )
+    ,
+# UI Adresse, Map ----
+tabPanel(
+  title = "Adresse",
+  fluidRow(
+    column(
+      width = 4,
+      selectizeInput("strasse", "Straße:", choices = c("", strassen),
+                     options = list(create = TRUE, highlight = TRUE, placeholder = "Wählen oder suchen Sie eine Straße")),
+      uiOutput("hausnummer_dropdown"),
+      leafletOutput("map", height = 300)  # Adding the map below the dropdowns
     ),
-    tabPanel(
-      title = "Adresse",
-      fluidRow(
-        column(
-          width = 4,
-          selectizeInput("strasse", "Straße:", choices = c("", strassen)),
-          uiOutput("hausnummer_dropdown"),
-          leafletOutput("map", height = 300),
-          textOutput("wohnlage")  # Display the Wohnlage output below the map
-        ),
-        column(
-          width = 8,
-          p("Beschreibung der Adresse.")
-        )
-      )
+    column(
+      width = 8,
+      h3("Adresse, Wohnlage"),  # Added header
+      uiOutput("description_Adresse")  # Dynamic description output
+    )
+  )
+)
+,
+# UI Baujahresklasse ----
+tabPanel(
+  title = "Baujahr",
+  fluidRow(
+    column(
+      width = 4,
+      selectInput("baujahr", "Altersklasse:",
+                  choices = c("", setNames(names(year_ranges), paste(names(year_ranges), display_labels, sep = " "))),
+                  selected = ""),  # Start with an empty selection
+      textOutput("baujahr_percent")
     ),
-    tabPanel(
-      title = "Baujahr",
-      fluidRow(
-        column(
-          width = 4,
-          selectInput("baujahr", "Altersklasse:", choices = c("", names(year_ranges))),
-          textOutput("baujahr_percent")
-        ),
-        column(
-          width = 8,
-          p("Beschreibung des Baujahrs.")
-        )
-      )
-    ),
+    column(
+      width = 8,
+      h3("Baujahr, Altersklasse"),  # Added header
+      uiOutput("description_Baujahr")  # Dynamic description output
+    )
+  )
+)
+
+
+
+
+,
+# UI Sanierung ----
     tabPanel(
       title = "Sanierung",
       fluidRow(
@@ -86,6 +102,7 @@ ui <- fluidPage(
         )
       )
     ),
+# UI Sanitärausstatung ----
     tabPanel(
       title = "Sanitärausstattung",
       fluidRow(
@@ -100,6 +117,7 @@ ui <- fluidPage(
         )
       )
     ),
+# UI Beschaffenheit, sonstige Ausstattung ----
     tabPanel(
       title = "Beschaffenheit",
       fluidRow(
@@ -114,6 +132,7 @@ ui <- fluidPage(
         )
       )
     ),
+# UI Ergebnisseite ----
     tabPanel(
       title = "Ergebnis",
       fluidRow(
@@ -149,10 +168,10 @@ ui <- fluidPage(
   )
 )
 
-# Define Server
+# Define Server ----
 server <- function(input, output, session) {
 
-  # Define color palettes for map markers
+  # Define color palettes for map markers ----
   color_palette <- colorFactor(
     palette = marker_colors,  # Use the predefined marker colors
     domain = c("A", "B", "C") # The categories of the Wohnlage
@@ -335,6 +354,101 @@ server <- function(input, output, session) {
     total_percentage <- sum(unlist(ausstattung_items[input$ausstattung]))
     paste("Weitere Ausstattungszuschläge: ", sprintf("%.2f%%", total_percentage * 100), sep = "")
   })
+
+  # DynRext Wohnungsgröße ----
+  output$description_Wohnungsgroesse <- renderUI({
+    req(input$groesse)  # Ensure that a selection is made
+
+    # Get the selected values
+    selected_value <- values_list[[as.numeric(input$groesse)]]
+    von <- RefTab_Groesse$von[as.numeric(input$groesse)]
+    bis_unter <- RefTab_Groesse$bis_unter[as.numeric(input$groesse)]
+    med_value <- selected_value$med
+    lo_value <- selected_value$low
+    hi_value <- selected_value$hi
+
+    # Create the description text with dynamic values
+    description_text <- paste0(
+      "Sie haben eine Wohnungsgröße von ", von, " bis unter ", bis_unter, " m² ausgewählt. ",
+      "Daraus ergibt sich für die weiteren Berechnungen ein Basiswert von ", med_value, " EUR/m², ",
+      "von dem aus Zu- und Abschläge für Lage, Alter, Sanierung, Ausstattung und Beschaffenheit berechnet werden.",
+      "<br><br>",
+      "Dieser Basiswert entspricht einer ortsüblichen Vergleichsmiete für eine Wohnung der angegebenen Größenordnung in zentraler Lage und mit mittlerer Ausstattung/Beschaffenheit.",
+      "<br><br>",
+      "Die Spanne der Ortsüblichkeit reicht von ", lo_value, " EUR/m² bis ", hi_value, " EUR/m²."
+    )
+
+    # Render the text as HTML
+    HTML(description_text)
+  })
+
+# DynText Adresse ----
+
+  output$description_Adresse <- renderUI({
+    req(input$strasse, input$hausnummer)  # Ensure that both street and house number are selected
+
+    # Filter the data for the selected address
+    selected_adr <- sf_data %>%
+      filter(STRASSE == input$strasse, HAUSNUMMER == input$hausnummer)
+
+    if (nrow(selected_adr) > 0) {
+      strasse_hs <- selected_adr$STRASSE_HS
+      lagekategorie <- selected_adr$WL_2024
+
+      # Define the description text for the selected location category
+      lage_text <- switch(
+        lagekategorie,
+        "A" = "Zentrale Lage in der Nähe von Innenstadt, Universität und Klinikum, beste infrastrukturelle Ausstattung (ÖPNV, Einkaufsmöglichkeiten, ...), Zu-/Abschlag +- 0%",
+        "B" = "Gürtellage im Anschluss an das Zentrum, gute Anbindung und Einkaufsmöglichkeiten, Abschlag -7%",
+        "C" = "Außenlage mit reduzierter ÖPNV-Anbindung und ggf. längeren Wegen zu Einkaufsmöglichkeiten und urbaner Infrastruktur, Abschlag -10%"
+      )
+
+      # Create the description text with dynamic values
+      description_text <- paste0(
+        "Sie haben die Adresse ", strasse_hs, " angegeben, ",
+        "diese entspricht der Lagekategorie ", lagekategorie, ".<br><br>",
+        "Die Lagekategorien sind folgende:<br><br>",
+        "<strong>A:</strong> Zentrale Lage in der Nähe von Innenstadt, Universität und Klinikum, beste infrastrukturelle Ausstattung (ÖPNV, Einkaufsmöglichkeiten, ...), Zu-/Abschlag +- 0%<br><br>",
+        "<strong>B:</strong> Gürtellage im Anschluss an das Zentrum, gute Anbindung und Einkaufsmöglichkeiten, Abschlag -7%<br><br>",
+        "<strong>C:</strong> Außenlage mit reduzierter ÖPNV-Anbindung und ggf. längeren Wegen zu Einkaufsmöglichkeiten und urbaner Infrastruktur, Abschlag -10%."
+      )
+
+      # Render the text as HTML
+      HTML(description_text)
+    } else {
+      HTML("Bitte wählen Sie eine gültige Adresse aus.")
+    }
+  })
+
+# DanText Altersklasse ----
+  output$description_Baujahr <- renderUI({
+    req(input$baujahr)  # Ensure that a selection is made
+
+    # Get the selected Altersklasse (which should directly match a key in year_ranges)
+    altersklasse <- input$baujahr
+
+    # Use the extracted year range to get the correct adjustment value
+    adjustment <- year_ranges[[altersklasse]]
+    percent_adjustment <- sprintf("%+.0f%%", adjustment * 100)
+
+    # Create the description text with dynamic values
+    description_text <- paste0(
+      "Sie haben den Baujahresbereich \"", altersklasse, "\" angegeben. ",
+      "Dieser führt zu einem Zu-/Abschlag von ", percent_adjustment, ". <br><br>",
+      " Die Baujahresklassen berücksichtigen, welcher allgemeine Zustand einer ",
+      "Wohnung aus den angegebenen Zeitraum erwartet werden kann. Insbesondere ",
+      "der gesamte bauliche Aufwand, der im jeweiligen Zeitraum betrieben werden ",
+      "konnte/musste, um zeitgemäßen Wohnraum herzustellen, schlägt sich hier ",
+      "nieder, aber auch z.B. die für den jeweiligen Zeitraum typischen ",
+      "Wohnungszuschnitte."
+    )
+
+    # Render the text as HTML
+    HTML(description_text)
+  })
+
+
+
 }
 
 # Run the application
