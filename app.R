@@ -1,3 +1,4 @@
+# app.R
 library(shiny)
 library(leaflet)
 library(sf)
@@ -10,7 +11,7 @@ load("./data/adr_2024.RData")
 source("./scripts/load_data.R")
 source("./scripts/define_options.R")
 
-# Source all module scripts
+# Source modules
 source("./modules/Einleitung.UI.R")
 source("./modules/Einleitung.server.R")
 source("./modules/Wohnungsgroesse.UI.R")
@@ -19,18 +20,10 @@ source("./modules/Adresse.UI.R")
 source("./modules/Adresse.server.R")
 source("./modules/Ergebnis.UI.R")
 source("./modules/Ergebnis.server.R")
+source("./modules/Baujahr.UI.R")
+source("./modules/Baujahr.server.R")
 
-# Extract unique street names and sort them alphabetically
-strassen <- sort(unique(sf_data$STRASSE))
-
-# Define Wohnlage Adjustments
-wohnlage_adjustments <- list(
-  "A" = 0.00,
-  "B" = -0.07,
-  "C" = -0.10
-)
-
-# Load JavaScript
+# JavaScript Path
 js_path <- "scripts/custom.js"
 
 # UI ----
@@ -45,25 +38,19 @@ ui <- fluidPage(
     EinleitungUI("einleitung"),
     WohnungsgroesseUI("wohnungsGroesse"),
     AdresseUI("adresse"),
+    BaujahrUI("baujahr"),          # New Baujahr tab
     ErgebnisUI("ergebnis")
   )
 )
 
 # Server Logic ----
 server <- function(input, output, session) {
-  # Reactive value storage
   report_data <- reactiveValues()
 
-  # Handle the Einleitung module
   EinleitungServer("einleitung", report_data)
-
-  # Handle the Wohnungsgröße module
   WohnungsgroesseServer("wohnungsGroesse", report_data)
-
-  # Handle the Adresse module
   AdresseServer("adresse", report_data)
-
-  # Handle the Ergebnis module
+  BaujahrServer("baujahr", report_data)  # New Baujahr server logic
   ErgebnisServer("ergebnis", report_data)
 }
 
