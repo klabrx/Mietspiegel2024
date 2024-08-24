@@ -1,0 +1,31 @@
+---
+title: "Mietspiegel Ergebnisbericht"
+author: "Stadt Passau"
+output: html_document
+params:
+  Groesse: 60
+  Adresse: "Musterstraße 1, Passau"
+  Baujahr: "1990 - 1995"
+  Sanierungen: ["Fenster-/Rahmenerneuerung", "Dachsanierung"]
+  Sanitaer: ["Zweites WC/Gäste-WC", "Fußbodenheizung"]
+  Ausstattung: ["Einbauküche", "Terrasse"]
+---
+
+## Ergebnisbericht
+
+### Zusammenfassung
+
+**Wohnungsgröße:** `r params$Groesse` m²
+
+**Adresse:** `r params$Adresse`
+
+**Baujahr:** `r params$Baujahr`
+
+**Sanierungsmaßnahmen:**
+- `r paste(params$Sanierungen, collapse = ", ")`
+
+**Sanitärausstattung:**
+- `r paste(params$Sanitaer, collapse = ", ")`
+
+**Weitere Ausstattungsmerkmale:**
+- `r paste(params$Ausstattung, collapse = ", ")`
