@@ -1,19 +1,21 @@
 ---
-title: "Mietspiegel Ergebnisbericht"
+title: "Ergebnisbericht"
 author: "Stadt Passau"
-output: html_document
+output: 
+  html_document:
+    css: "styles/report_styles.css"
 params:
   Groesse: 60
-  Adresse: "Musterstraße 1, Passau"
-  Baujahr: "1990 - 1995"
-  Sanierungen: ["Fenster-/Rahmenerneuerung", "Dachsanierung"]
-  Sanitaer: ["Zweites WC/Gäste-WC", "Fußbodenheizung"]
-  Ausstattung: ["Einbauküche", "Terrasse"]
+  Adresse: "Unbekannte Straße 1"
+  Baujahr: "1970-1980"
+  Sanierungen: []
+  Sanitaer: []
+  Ausstattung: []
 ---
 
-## Ergebnisbericht
+# Mietspiegel Ergebnisbericht
 
-### Zusammenfassung
+## Zusammenfassung
 
 **Wohnungsgröße:** `r params$Groesse` m²
 
@@ -21,11 +23,26 @@ params:
 
 **Baujahr:** `r params$Baujahr`
 
-**Sanierungsmaßnahmen:**
-- `r paste(params$Sanierungen, collapse = ", ")`
+**Sanierungsmaßnahmen:** 
 
-**Sanitärausstattung:**
-- `r paste(params$Sanitaer, collapse = ", ")`
+`r if (length(params$Sanierungen) > 0) { 
+    paste(params$Sanierungen, collapse = ", ") 
+  } else { 
+    "Keine Sanierungsmaßnahmen angegeben." 
+  }`
 
-**Weitere Ausstattungsmerkmale:**
-- `r paste(params$Ausstattung, collapse = ", ")`
+**Sanitärausstattung:** 
+
+`r if (length(params$Sanitaer) > 0) { 
+    paste(params$Sanitaer, collapse = ", ") 
+  } else { 
+    "Keine Sanitärausstattung angegeben." 
+  }`
+
+**Weitere Ausstattungsmerkmale:** 
+
+`r if (length(params$Ausstattung) > 0) { 
+    paste(params$Ausstattung, collapse = ", ") 
+  } else { 
+    "Keine weiteren Ausstattungsmerkmale angegeben." 
+  }`

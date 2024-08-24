@@ -1,4 +1,5 @@
 # Ergebnis.UI.R
+
 ErgebnisUI <- function(id) {
   ns <- NS(id)
 
@@ -8,9 +9,8 @@ ErgebnisUI <- function(id) {
       column(
         width = 12,
         h3("Zusammenfassung"),
-        uiOutput(ns("summary_output")),  # Output for the summary text
-        br(),  # Line break
-        downloadButton(ns("download_report"), "Ergebnisbericht herunterladen")
+        verbatimTextOutput(ns("summaryOutput")),
+        downloadButton(ns("downloadReport"), "Ergebnis herunterladen")
       )
     )
   )
