@@ -8,7 +8,7 @@ WohnungsgroesseUI <- function(id) {
     fluidRow(
       column(
         width = 4,
-        selectInput(ns("groesse"), "Auswahl der Wohnungsgröße:", choices = c("", dropdown_options)),
+        selectInput(ns("groesse"), "Wohnungsgröße:", choices = c("", dropdown_options)),
         textOutput(ns("GROESSE")),
         textOutput(ns("low_value")),
         uiOutput(ns("med_value")),
