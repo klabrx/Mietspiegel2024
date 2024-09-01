@@ -3,7 +3,6 @@ library(shiny)
 library(leaflet)
 library(sf)
 library(dplyr)
-library(stringr)  # Ensure stringr is loaded for str_pad
 
 # Load Data
 load("./data/adr_2024.RData")
@@ -12,50 +11,24 @@ load("./data/adr_2024.RData")
 source("./scripts/load_data.R")
 source("./scripts/define_options.R")
 
-# Source modules
-source("./modules/Einleitung.UI.R")
-source("./modules/Einleitung.server.R")
-source("./modules/Wohnungsgroesse.UI.R")
-source("./modules/Wohnungsgroesse.server.R")
-source("./modules/Adresse.UI.R")
-source("./modules/Adresse.server.R")
-source("./modules/Ergebnis.UI.R")
-source("./modules/Ergebnis.server.R")
-source("./modules/Baujahr.UI.R")
-source("./modules/Baujahr.server.R")
-
-# JavaScript Path
-js_path <- "scripts/custom.js"
+# Source section scripts
+source("./sections/einleitung.R")
+source("./sections/wohnungsgroesse.R")
+source("./sections/adresse.R")
+source("./sections/baujahr.R")
+source("./sections/ergebnis.R")
 
 # UI ----
 ui <- fluidPage(
-  tags$head(
-    tags$script(src = js_path),
-    tags$link(rel = "stylesheet", type = "text/css", href = "styles/custom_styles.css")
-  ),
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
-  tabsetPanel(
-    id = "main_tabs",
-    tabPanel(
-      title = "Einleitung",
-      EinleitungUI("einleitung")
-    ),
-    tabPanel(
-      title = "Wohnungsgröße",
-      WohnungsgroesseUI("wohnungsGroesse")
-    ),
-    tabPanel(
-      title = "Adresse",
-      AdresseUI("adresse")
-    ),
-    tabPanel(
-      title = "Baujahr",
-      BaujahrUI("baujahr")
-    ),
-    tabPanel(
-      title = "Ergebnis",
-      ErgebnisUI("ergebnis")
-    )
+  div(id = "section_selector",
+      uiOutput("section_ui") # Dynamic section UI
+  ),
+  fluidRow(
+    div(id = "summary", uiOutput("sticky_summary"))
+  ),
+  fluidRow(
+    uiOutput("section_content") # Dynamic section content
   )
 )
 
@@ -63,13 +36,30 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   report_data <- reactiveValues()
 
-  EinleitungServer("einleitung", report_data)
-  WohnungsgroesseServer("wohnungsGroesse", report_data)
-  AdresseServer("adresse", report_data)
-  BaujahrServer("baujahr", report_data)
-  ErgebnisServer("ergebnis", report_data)
+  # Server logic for each section
+  einleitung(input, output, session, report_data)
+  wohnungsgroesse(input, output, session, report_data)
+  adresse(input, output, session, report_data)
+  # baujahr(input, output, session, report_data)
+  # ergebnis(input, output, session, report_data)
+
+  # Handle dynamic UI for section selection
+  output$section_ui <- renderUI({
+    selectInput("section", "Wählen Sie eine Sektion:",
+                choices = c("Einleitung", "Wohnungsgröße", "Adresse", "Baujahr", "Ergebnis"))
+  })
+
+  # Display the content of the selected section
+  output$section_content <- renderUI({
+    switch(input$section,
+           "Einleitung" = einleitungUI(),
+           "Wohnungsgröße" = wohnungsgroesseUI(),
+           "Adresse" = adresseUI(),
+           "Baujahr" = baujahrUI(),
+           "Ergebnis" = ergebnisUI()
+    )
+  })
 }
 
 # Run the application
-# options(shiny.trace = TRUE)
 shinyApp(ui = ui, server = server)
