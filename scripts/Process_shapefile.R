@@ -17,6 +17,7 @@ if (st_crs(sf_data)$epsg != 4326) {
 
 # Extract relevant columns and add sorting logic
 sf_data <- sf_data %>%
+  arrange(STRASSE, as.numeric(substr(ADRESS_ID, 6, nchar(ADRESS_ID)))) %>%
   select(
     STRASSE,         # Street name
     HAUSNUMMER,      # House number
@@ -25,12 +26,7 @@ sf_data <- sf_data %>%
     geometry,        # Geometry for mapping
     HNR,             # Numeric part of house number for sorting
     HNRZ             # Suffix part of house number for sorting
-  ) %>%
-  mutate(
-    HNR = as.numeric(HNR),  # Ensure that HNR is numeric for sorting
-    HNRZ = str_pad(HNRZ, width = 3, side = "right", pad = " ")  # Normalize HNRZ for sorting
-  ) %>%
-  arrange(STRASSE, HNR, HNRZ)  # Sort by street, numeric house number, and suffix
+  )
 
 # Save the processed sf_data to an RData file
 save(sf_data, file = rdata_path)
