@@ -1,27 +1,47 @@
-ErgebnisServer <- function(id, groesse_data) {
+# Ergebnis.server.R
+ErgebnisServer <- function(id, report_data) {
   moduleServer(id, function(input, output, session) {
+    ns <- session$ns
 
-    summary_data <- reactive({
-      list(
-        Groesse = groesse_data()$label,
-        Adresse = "N/A",  # Placeholder until the address module is added
-        Baujahr = "N/A",  # Placeholder until the Baujahr module is added
-        Sanierungen = "N/A",  # Placeholder until the Sanierung module is added
-        Sanitaer = "N/A",  # Placeholder until the Sanitärausstattung module is added
-        Ausstattung = "N/A"  # Placeholder until the Beschaffenheit module is added
-      )
+    # Dynamically generate the summary based on report_data
+    output$dynamicSummary <- renderUI({
+      items <- names(report_data)
+
+      # Create UI elements for each item in report_data
+      summary_ui <- lapply(items, function(item) {
+        value <- report_data[[item]]
+
+        # Format value for display
+        if (is.numeric(value)) {
+          value <- sprintf("%.2f", value)
+        } else if (is.list(value) || is.vector(value)) {
+          value <- paste(value, collapse = ", ")
+        }
+
+        # Return a wellPanel containing the item name and value
+        wellPanel(
+          tags$strong(paste(item, ":")),
+          p(value)
+        )
+      })
+
+      # Return the list of UI elements
+      do.call(tagList, summary_ui)
     })
 
-    output$summaryOutput <- renderText({
-      data <- summary_data()
-      paste(
-        "Wohnungsgröße:", data$Groesse, "\n",
-        "Adresse:", data$Adresse, "\n",
-        "Baujahr:", data$Baujahr, "\n",
-        "Sanierungsmaßnahmen:", paste(data$Sanierungen, collapse = ", "), "\n",
-        "Sanitärausstattung:", paste(data$Sanitaer, collapse = ", "), "\n",
-        "Weitere Ausstattungsmerkmale:", paste(data$Ausstattung, collapse = ", ")
-      )
-    })
+    # Generate the downloadable report
+    output$downloadReport <- downloadHandler(
+      filename = function() {
+        paste("Ergebnisbericht", Sys.Date(), ".html", sep = "_")
+      },
+      content = function(file) {
+        rmarkdown::render(
+          input = "reports/report.Rmd",
+          output_file = file,
+          params = as.list(report_data),
+          envir = new.env(parent = globalenv())
+        )
+      }
+    )
   })
 }

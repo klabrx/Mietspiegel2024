@@ -1,16 +1,13 @@
 # Ergebnis.UI.R
-
 ErgebnisUI <- function(id) {
   ns <- NS(id)
-
-  tabPanel(
-    title = "Ergebnis",
+  tagList(
     fluidRow(
       column(
         width = 12,
         h3("Zusammenfassung"),
-        verbatimTextOutput(ns("summaryOutput")),
-        downloadButton(ns("downloadReport"), "Ergebnis herunterladen")
+        uiOutput(ns("dynamicSummary")),
+        downloadButton(ns("downloadReport"), "Download Ergebnisbericht")
       )
     )
   )

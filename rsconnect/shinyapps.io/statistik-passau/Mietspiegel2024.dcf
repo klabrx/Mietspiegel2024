@@ -1,0 +1,14 @@
+name: Mietspiegel2024
+title: Mietspiegel2024
+username:
+account: statistik-passau
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 12575048
+bundleId: 9048891
+url: https://statistik-passau.shinyapps.io/Mietspiegel2024/
+when: 1725186355.77937
+lastSyncTime: 1725186355.77938
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: SHP
