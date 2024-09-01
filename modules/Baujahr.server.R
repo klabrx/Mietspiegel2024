@@ -1,29 +1,32 @@
+# Baujahr.server.R
+
 BaujahrServer <- function(id, report_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    observeEvent(input$baujahr, {
-      if (!is.null(input$baujahr) && input$baujahr != "") {
-        baujahr_label <- names(year_ranges)[input$baujahr]
-        adjustment <- year_ranges[[baujahr_label]]
-        report_data$baujahr <- list(
-          label = baujahr_label,
-          adjustment = adjustment,
-          percent = display_labels[[baujahr_label]]
-        )
-      }
+    # Render the table
+    output$baujahr_table <- DT::renderDataTable({
+      table_data <- data.frame(
+        Altersklasse = names(year_ranges),
+        `Zu-/Abschlag in %` = sprintf("%+.0f%%", year_ranges * 100),  # Adding signs to percentages with numeric formatting
+        stringsAsFactors = FALSE
+      )
+
+      # Render the DataTable
+      DT::datatable(
+        table_data,
+        colnames = c("Altersklasse", "Zu-/Abschlag in %"),  # Manually setting column names
+        options = list(pageLength = 10, dom = 't', ordering = FALSE),
+        rownames = FALSE
+      )
     })
 
-    output$description_Baujahr <- renderUI({
-      req(input$baujahr)
-      selected_value <- report_data$baujahr
-      description_text <- paste0(
-        "Sie haben den Baujahresbereich \"", selected_value$label, "\" angegeben. ",
-        "Dieser führt zu einem Zu-/Abschlag von ", selected_value$percent, ". <br><br>",
-        "Die Baujahresklassen berücksichtigen den baulichen Zustand und die typischen Wohnungszuschnitte, ",
-        "die für die angegebene Altersklasse zu erwarten sind."
-      )
-      HTML(description_text)
+    # Update report_data when an Altersklasse is selected
+    observeEvent(input$baujahr, {
+      if (input$baujahr != "") {
+        report_data$Baujahr <- input$baujahr
+        report_data$Baujahr_Abschlag <- year_ranges[[input$baujahr]]
+      }
     })
   })
 }

@@ -3,6 +3,7 @@ library(shiny)
 library(leaflet)
 library(sf)
 library(dplyr)
+library(stringr)  # Ensure stringr is loaded for str_pad
 
 # Load Data
 load("./data/adr_2024.RData")
@@ -35,11 +36,26 @@ ui <- fluidPage(
   titlePanel("Qualifizierter Mietspiegel der Stadt Passau ab 2024"),
   tabsetPanel(
     id = "main_tabs",
-    EinleitungUI("einleitung"),
-    WohnungsgroesseUI("wohnungsGroesse"),
-    AdresseUI("adresse"),
-    BaujahrUI("baujahr"),          # New Baujahr tab
-    ErgebnisUI("ergebnis")
+    tabPanel(
+      title = "Einleitung",
+      EinleitungUI("einleitung")
+    ),
+    tabPanel(
+      title = "Wohnungsgröße",
+      WohnungsgroesseUI("wohnungsGroesse")
+    ),
+    tabPanel(
+      title = "Adresse",
+      AdresseUI("adresse")
+    ),
+    tabPanel(
+      title = "Baujahr",
+      BaujahrUI("baujahr")
+    ),
+    tabPanel(
+      title = "Ergebnis",
+      ErgebnisUI("ergebnis")
+    )
   )
 )
 
@@ -50,7 +66,7 @@ server <- function(input, output, session) {
   EinleitungServer("einleitung", report_data)
   WohnungsgroesseServer("wohnungsGroesse", report_data)
   AdresseServer("adresse", report_data)
-  BaujahrServer("baujahr", report_data)  # New Baujahr server logic
+  BaujahrServer("baujahr", report_data)
   ErgebnisServer("ergebnis", report_data)
 }
 
