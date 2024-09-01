@@ -71,4 +71,5 @@ server <- function(input, output, session) {
 }
 
 # Run the application
+# options(shiny.trace = TRUE)
 shinyApp(ui = ui, server = server)

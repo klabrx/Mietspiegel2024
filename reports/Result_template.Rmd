@@ -1,0 +1,10 @@
+| Merkmal                       | Eingabe                             | Anteil                            | Ergebnis                    |
+|-------------------------------|-------------------------------------|-----------------------------------|-----------------------------|
+| Wohnungsgröße                 | params\$Groesse                     | 100%                              | reftab_groesse\$med         |
+| Lage                          | "paramsadresse", Wohnlage "WL_2024" | Wohnlage_adjustment (%)           |                             |
+| Alter                         | params\$Baujahr                     | year_ranges\$value (%)            |                             |
+| Modernisierung                | params\$Modernisierung              | to be implemented                 |                             |
+| Sanitärausstattung            | tbi                                 | tbi                               |                             |
+| Sonstige Ausstattungsmerkmale | tbi                                 | tbi                               |                             |
+|                               | Summe der zu-/Ab schläge            | in %                              | reftab_groesse\$md \* summe |
+|                               |                                     | Ortsübliche Vergleichsmiete somit | md + med\*summe             |
